@@ -2,7 +2,7 @@
 
 Scores how alike a group of dancers' poses are, one percentage per frame, and
 draws the returned keypoints back onto the clip. Pose estimation runs on
-[`vitpose-plus-large`](https://docs.vlm.run/gateway/models/usyd-community-vitpose-plus-large)
+[`vitpose-plus-large`](https://vlm.run/gateway/models/usyd-community-vitpose-plus-large)
 through the [VLM Run Gateway](https://www.vlm.run/gateway), so there are no
 model weights to download.
 

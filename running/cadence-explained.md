@@ -11,7 +11,7 @@ it is: [`config.py`](config.py). Per-step numbers land in `gait.json` and
 `summary.txt`.
 
 Everything below uses the 17 COCO keypoints that
-[`vitpose-plus-large`](https://docs.vlm.run/gateway/models/usyd-community-vitpose-plus-large)
+[`vitpose-plus-large`](https://vlm.run/gateway/models/usyd-community-vitpose-plus-large)
 returns per frame. No extra model, no markers.
 
 One thing to know before any of it: **x is normalized by the frame width and y by

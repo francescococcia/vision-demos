@@ -836,6 +836,28 @@ def deliver(run: Run, comparison: compare.Comparison | None, *, step: int,
     return run_dir
 
 
+def to_render(runs: list[Run], console) -> list[tuple[int, Run]]:
+    """The attempts to render, as (attempt number, run). Empty if none matched.
+
+    RENDER_ONLY narrows the render, never the analysis: the card a clip ends on
+    is built from every clip, so all of them are analyzed either way. The number
+    is the one the card shows, because both come from this same list.
+    """
+    numbered = list(enumerate(runs, start=1))
+    want = cfg.RENDER_ONLY
+    if want is None:
+        return numbered
+    if isinstance(want, int):
+        chosen = [pair for pair in numbered if pair[0] == want]
+    else:
+        stem = Path(want).stem.lower()
+        chosen = [pair for pair in numbered if pair[1].label.lower() == stem]
+    if not chosen:
+        console.print(f"[red]RENDER_ONLY = {want!r} matches no attempt.[/] Available: "
+                      + ", ".join(f"{i} = {r.label}" for i, r in numbered))
+    return chosen
+
+
 def main() -> int:
     t_start = time.perf_counter()
     console.print()
@@ -891,7 +913,15 @@ def main() -> int:
         adopt_numbering(runs, comparison)
     step = 8 if comparison is not None else 7
 
-    for i, run in enumerate(runs, start=1):
+    selected = to_render(runs, console)
+    if not selected:
+        return 1
+    if cfg.RENDER_ONLY is not None:
+        only = ", ".join(f"attempt {i} ({r.label})" for i, r in selected)
+        console.print(f"  [bold]rendering {only}[/] only; the rest were analyzed, "
+                      "not drawn")
+
+    for i, run in selected:
         if batch:
             console.print()
             console.rule(f"[bold magenta]{i}/{len(runs)}[/] {run.label}", align="left")

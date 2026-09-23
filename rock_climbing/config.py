@@ -24,6 +24,12 @@ BATCH_MODE = True
 INPUT_DIR = DATA_DIR / "input" / "current"
 INPUT_SUFFIXES = (".mov", ".mp4", ".m4v", ".avi")
 
+# Render one attempt instead of all of them. Every clip is still analyzed, since
+# the card each one ends on is made of all of them; this skips only the drawing,
+# which is the part that takes the time. Give the attempt number as the card
+# labels it (1-based, by filename) or a clip name. None renders every attempt.
+RENDER_ONLY = None           # e.g. 2, or "IMG_8843"
+
 # Used when BATCH_MODE is False.
 INPUT_VIDEO = DATA_DIR / "input" / "climbing.mov"
 
@@ -220,6 +226,26 @@ FINAL_DWELL_DECAY = 0             # counter -= this per missed frame, floored at
 HOLD_MASK_MARGIN = 0.018      # enter: ~19px at 1080; the mask hugs the hold
 HOLD_RELEASE_MARGIN = 0.030   # stay:  ~32px at 1080; must clear this to let go
 HOLD_BBOX_MARGIN = 0.018      # fallback for a hold with no usable mask
+
+# How *close* a contact got, not just how long it lasted. The dwell above asks
+# only how many frames a limb spent inside the margin, which a limb travelling
+# past a hold at a constant distance satisfies as well as one resting on it: on
+# IMG_8843 the left foot crossed hold 2's margin for exactly the dwell, never
+# coming within 17px of the outline, and the hold activated.
+#
+# So a contact that never gets closer than GRAZE_DEPTH to the hold's edge is
+# treated as a graze and has to last GRAZE_DWELL_SECONDS instead. Not rejected
+# outright: depth alone does not separate them. The toe point is an estimate
+# (ankle + ANKLE_TO_TOE_OFFSET, since COCO-17 has no foot), so a foot genuinely
+# standing on a hold for seven seconds can sit a few pixels outside the mask the
+# whole time — IMG_8845's left foot on hold 10 does. What the two real shallow
+# contacts have that the grazes do not is duration.
+#
+# 0.012 sits in the gap the four attempts leave between the deepest graze
+# (-0.0158) and the shallowest real contact (-0.0088), which is where it should
+# be re-checked if either moves.
+HOLD_GRAZE_DEPTH = 0.012      # ~13px at 1080; closer than this is a real touch
+HOLD_GRAZE_DWELL_SECONDS = 1.5
 
 # COCO-17 has no foot: the ankle keypoint sits at the joint, but the contact is
 # at the toes, well below it. Without this a foothold goes unactivated while the

@@ -6,6 +6,7 @@ import functools
 import hashlib
 import json
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -40,6 +41,18 @@ HDR_TRANSFERS = frozenset({"arib-std-b67", "smpte2084"})
 
 
 @functools.lru_cache(maxsize=None)
+def tool(name: str) -> str:
+    """Resolve *name* next to the running interpreter, falling back to PATH.
+
+    `conda activate` puts the environment's bin first, but running its python by
+    absolute path does not, and what PATH finds instead is usually Homebrew's
+    ffmpeg — which has no `libplacebo`, so HDR silently goes untone-mapped.
+    """
+    local = Path(sys.executable).parent / name
+    return str(local) if local.is_file() else name
+
+
+@functools.lru_cache(maxsize=None)
 def has_filter(name: str) -> bool:
     """Whether this ffmpeg build ships *name*.
 
@@ -48,7 +61,7 @@ def has_filter(name: str) -> bool:
     which one is first on PATH — not on the machine.
     """
     try:
-        proc = subprocess.run(["ffmpeg", "-hide_banner", "-filters"],
+        proc = subprocess.run([tool("ffmpeg"), "-hide_banner", "-filters"],
                               capture_output=True, text=True)
     except OSError:
         return False
@@ -94,7 +107,7 @@ def _run(cmd: list[str]) -> subprocess.CompletedProcess:
 def probe_source(path: Path) -> dict:
     """ffprobe the source, including the rotation OpenCV would miss."""
     proc = _run([
-        "ffprobe", "-v", "error", "-select_streams", "v:0",
+        tool("ffprobe"), "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=codec_name,width,height,nb_frames,duration,pix_fmt,"
                          "color_transfer,color_primaries,color_space",
         "-show_entries", "stream_side_data=rotation",
@@ -160,7 +173,8 @@ def convert(
     dst.parent.mkdir(parents=True, exist_ok=True)
     tmp = dst.with_suffix(".partial.mp4")
 
-    cmd = ["ffmpeg", "-y", "-nostats", "-loglevel", "error", "-progress", "pipe:1", "-i", str(src)]
+    cmd = [tool("ffmpeg"), "-y", "-nostats", "-loglevel", "error",
+           "-progress", "pipe:1", "-i", str(src)]
     if trim_seconds:
         cmd += ["-t", str(trim_seconds)]
     # Tone-map before scaling, not after. Resampling is an average of
@@ -257,7 +271,7 @@ def encode_h264(src: Path, dst: Path, *, crf: int, audio_from: Path | None = Non
     duration the length is stated rather than inferred, so the held tail
     survives and the audio still stops where it should.
     """
-    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src)]
+    cmd = [tool("ffmpeg"), "-y", "-loglevel", "error", "-i", str(src)]
     if audio_from is not None:
         cmd += ["-i", str(audio_from)]
     cmd += [

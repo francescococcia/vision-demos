@@ -27,6 +27,7 @@ Four corrections do most of the work here:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import cv2
@@ -189,6 +190,10 @@ def analyze(holds: list[dict], poses, *, fps: float, aspect: float, cfg,
     # shorter dwell than the rest. The route still is not complete until both
     # hands hold it together for FINAL_HOLD_DWELL_SECONDS, which is the real gate.
     final_touch_frames = max(1, int(round(cfg.FINAL_HOLD_TOUCH_SECONDS * fps)))
+    # A contact that never gets within `graze_depth` of the hold's outline has to
+    # last `graze_frames` rather than the ordinary dwell. See HOLD_GRAZE_DEPTH.
+    graze_depth = cfg.HOLD_GRAZE_DEPTH
+    graze_frames = max(1, int(round(cfg.HOLD_GRAZE_DWELL_SECONDS * fps)))
     enter, release = cfg.HOLD_MASK_MARGIN, cfg.HOLD_RELEASE_MARGIN
     clearance = cfg.FLOOR_CLEARANCE
 
@@ -207,6 +212,8 @@ def analyze(holds: list[dict], poses, *, fps: float, aspect: float, cfg,
     held: dict[str, int] = {limb.key: 0 for limb in LIMBS}     # consecutive frames
     confirmed: dict[str, bool] = {limb.key: False for limb in LIMBS}
     last_seen: dict[str, int] = {limb.key: 0 for limb in LIMBS}
+    # Deepest this contact ever reached, to tell a touch from a pass-by.
+    peak: dict[str, float] = {limb.key: -math.inf for limb in LIMBS}
 
     def close(limb_key: str):
         """Bank the current contact if it ever cleared the dwell threshold."""
@@ -216,6 +223,7 @@ def analyze(holds: list[dict], poses, *, fps: float, aspect: float, cfg,
         on[limb_key] = None
         held[limb_key] = 0
         confirmed[limb_key] = False
+        peak[limb_key] = -math.inf
 
     final_dwell = 0
     completion_frame = None
@@ -246,10 +254,12 @@ def analyze(holds: list[dict], poses, *, fps: float, aspect: float, cfg,
             # it had to cross to get there. Only once it is clearly off does the
             # limb look for a new hold, on the tight margin.
             current = geometry.by_id.get(on[key]) if on[key] is not None else None
-            if current is not None and geometry.depth(current, *point) >= -release:
+            depth = geometry.depth(current, *point) if current is not None else None
+            if depth is not None and depth >= -release:
                 chosen = current
             else:
                 chosen = geometry.best(*point, margin=enter)
+                depth = None
 
             if chosen is None:
                 close(key)
@@ -262,10 +272,19 @@ def analyze(holds: list[dict], poses, *, fps: float, aspect: float, cfg,
 
             held[key] += 1
             last_seen[key] = frame
+            if depth is None:
+                depth = geometry.depth(chosen, *point)
+            peak[key] = max(peak[key], depth)
 
             need = (final_touch_frames if chosen["id"] == final_hold["id"]
                     else dwell_frames)
-            if not confirmed[key] and held[key] >= need:
+            # A limb that never came within `graze_depth` of the outline was
+            # passing the hold, not using it, and has to stay far longer to
+            # count. Both conditions, so a real contact still confirms on the
+            # ordinary dwell and a graze is not rejected outright — see
+            # HOLD_GRAZE_DEPTH for why depth alone cannot separate the two.
+            close_enough = peak[key] >= -graze_depth or held[key] >= graze_frames
+            if not confirmed[key] and held[key] >= need and close_enough:
                 confirmed[key] = True
                 activated_at.setdefault(chosen["id"], frame)
             if confirmed[key]:

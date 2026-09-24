@@ -52,6 +52,9 @@ ALERT after 30s lying on the mat following a fall. ALERT only shows a banner,
 beeps and saves a snapshot; a person presses A. Keys: Q quit, A acknowledge,
 R reset, S re-scan. `python live.py --selftest` checks the logic offline.
 Events and alert snapshots go to `data/output/live/<stamp>/`.
+Reception screen (design B): add `--serve 8780 --wall "Wall 2"` and open
+http://localhost:8780/ (from the phone: http://<laptop-ip>:8780/). Demo with no
+camera and no API: `python live.py --demo --fall-seconds 8 --serve 8780`.
 
 ## Filming rules (the analysis breaks without these)
 - The phone stays completely still (prop it on a water bottle), and it stays in

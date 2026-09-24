@@ -1,0 +1,11 @@
+# pip equivalent of environment.yml, for machines without conda
+# (cloud sessions, Claude Code on the phone). ffmpeg is a system package:
+# see setup_cloud.sh.
+opencv-python-headless
+numpy
+scipy
+matplotlib
+pillow
+rich
+python-dotenv
+openai>=1.40

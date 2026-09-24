@@ -12,7 +12,7 @@ for the climber.
   <img src="readme_images/rock_climbing_demo_thumbnail.jpg" width="600" alt="A completed boulder problem: the left panel holds a card comparing this attempt's sequence of holds against three others, the right panel the segmented route with the holds used lit in order">
 </p>
 
-## How to run this demo: tl;dr
+## tl;dr: how to run this demo
 
 1. Clone the [vision-demos](https://github.com/jeremyipark/vision-demos) repo.
 2. Get an API key at [VLM Run](https://app.vlm.run/sign-in) and add it to your `.env`.
@@ -20,6 +20,7 @@ for the climber.
 4. Send the video to your computer and drop it in `data/input/current/`.
 5. Update `HOLD_COLOR` in [`config.py`](config.py) to match your route.
 6. Create the conda environment and run `python main.py`.
+7. View the output in the latest timestamped folder under `data/output/`. The video ends in `_climb.mp4`.
 
 The details for each step are below.
 
@@ -102,6 +103,10 @@ repo, and describe how you want to update the project.**
    ```bash
    python main.py
    ```
+
+4. View the rendered output in the latest timestamped folder under
+   `data/output/`. Each clip gets its own subfolder, and the video will have the
+   suffix `_climb.mp4`.
 
 **NOTE:** the hold color is currently a variable in [`config.py`](config.py).
 Update `HOLD_COLOR` to match your route so that SAM 3.1 knows which holds to

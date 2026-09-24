@@ -122,7 +122,8 @@ class Spotter:
         return hit
 
     def log(self, now: float, event: str, **extra):
-        self.events.append({"t": round(now, 2), "event": event, **extra})
+        self.events.append({"t": round(now, 2), "at": datetime.now().strftime("%H:%M:%S"),
+                            "event": event, **extra})
 
     def update(self, person, now: float) -> str:
         if self.state == "ALERT":
@@ -307,6 +308,128 @@ def beep():
         print("\a", end="", flush=True)
 
 
+# ── reception screen: a tiny web server over the spotter ─────────────────────
+
+WEB_DIR = Path(__file__).resolve().parent / "web"
+
+
+def serve(port: int, ctx: dict):
+    """Serve web/index.html plus the JSON/JPEG API the reception page polls."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def send(self, code, body: bytes, ctype: str):
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            path = self.path.split("?", 1)[0]
+            if path in ("/", "/index.html"):
+                page = WEB_DIR / "index.html"
+                if not page.exists():
+                    return self.send(404, b"web/index.html missing", "text/plain")
+                return self.send(200, page.read_bytes(), "text/html; charset=utf-8")
+            if path == "/api/state":
+                return self.send(200, json.dumps(ctx["snapshot"]()).encode(),
+                                 "application/json")
+            if path == "/api/frame.jpg":
+                jpg = ctx["jpeg"]()
+                return self.send(200 if jpg else 404, jpg or b"", "image/jpeg")
+            self.send(404, b"not found", "text/plain")
+
+        def do_POST(self):
+            path = self.path.split("?", 1)[0]
+            if path == "/api/ack":
+                ctx["ack"]()
+            elif path == "/api/reset":
+                ctx["reset"]()
+            else:
+                return self.send(404, b"not found", "text/plain")
+            self.send(200, b'{"ok":true}', "application/json")
+
+    server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def snapshot_of(spotter: Spotter, shared: dict, info: dict, clock: float, wall: str) -> dict:
+    state = spotter.state
+    climb = None
+    if state == "CLIMBING" and spotter.climb_start is not None:
+        climb = clock - spotter.climb_start
+    elif spotter.climb_time is not None:
+        climb = spotter.climb_time
+    down = clock - spotter.down_since if (
+        spotter.down_since is not None and state in ("DOWN", "ALERT")) else None
+    person = shared.get("person")
+    frame = shared.get("frame")
+    return {
+        "state": state, "clock": round(clock, 2),
+        "climb_seconds": None if climb is None else round(climb, 1),
+        "down_seconds": None if down is None else round(down, 1),
+        "fall_seconds": spotter.fall_seconds, "hold_color": cfg.HOLD_COLOR,
+        "holds": [{"id": h["id"], "bbox": [round(float(v), 4) for v in h["bbox"]]}
+                  for h in spotter.holds],
+        "touched": list(spotter.touched),
+        "person": None if person is None else {
+            "kpts": [[round(float(x), 4), round(float(y), 4)] for x, y in person[0]],
+            "ok": [bool(v) for v in (person[1] >= MIN_KPT_SCORE)]},
+        "frame": {"w": frame.shape[1] if frame is not None else 0,
+                  "h": frame.shape[0] if frame is not None else 0,
+                  "seq": shared.get("seq", 0)},
+        "latency": round(info["latency"], 3), "calls": info["calls"],
+        "cost": round(info["calls"] * COST_PER_POSE, 4), "status": info["status"],
+        "events": spotter.events[-50:], "wall": wall,
+    }
+
+
+# ── demo feed: the real state machine on a scripted climb, no camera, no API ─
+
+DEMO_HOLDS = [{"id": i + 1, "bbox": [x, y, 0.035, 0.045]} for i, (x, y) in enumerate(
+    [(0.42, 0.72), (0.55, 0.62), (0.45, 0.52), (0.58, 0.42), (0.47, 0.32),
+     (0.56, 0.22), (0.50, 0.12)])]
+
+
+def demo_frame(w=1280, h=720):
+    img = np.full((h, w, 3), (52, 58, 66), np.uint8)
+    for i in range(0, w, 64):
+        cv2.line(img, (i, 0), (i, int(h * 0.9)), (60, 66, 74), 1)
+    cv2.rectangle(img, (0, int(h * 0.9)), (w, h), (95, 95, 95), -1)       # the mat
+    rng = np.random.default_rng(7)
+    for _ in range(40):                                                   # other routes
+        cx, cy = int(rng.uniform(0.05, 0.95) * w), int(rng.uniform(0.05, 0.85) * h)
+        color = [(60, 60, 220), (220, 120, 40), (200, 60, 200)][int(rng.integers(3))]
+        cv2.circle(img, (cx, cy), 9, color, -1)
+    for hold in DEMO_HOLDS:
+        x, y, bw, bh = hold["bbox"]
+        cv2.ellipse(img, (int((x + bw / 2) * w), int((y + bh / 2) * h)),
+                    (int(bw * w / 2), int(bh * h / 2)), 0, 0, 360, (60, 200, 60), -1)
+    return img
+
+
+def demo_script(t: float, fall_seconds: float):
+    """(pose, phase) at t seconds into the scripted loop: stand, climb, fall, lie."""
+    lie_for = fall_seconds + 8
+    if t < 4:
+        return _pose(0.9), "standing"
+    if t < 12:                                   # climb from floor to hold 5
+        f = (t - 4) / 8
+        feet = 0.72 - 0.35 * f
+        hand = DEMO_HOLDS[min(int(f * 5) + 1, 5)]["bbox"]
+        return _pose(feet, wrists=((hand[0] + 0.01, hand[1] + 0.02),
+                                   (hand[0] + 0.02, hand[1] + 0.02))), "climbing"
+    if t < 12 + lie_for:
+        return _pose(0.9, lying=True), "lying on the mat"
+    return _pose(0.9), "got up"
+
+
 # ── main ─────────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -315,33 +438,70 @@ def main() -> int:
     ap.add_argument("--interval", type=float, default=1.0, help="seconds between pose calls")
     ap.add_argument("--fall-seconds", type=float, default=30.0)
     ap.add_argument("--no-scan", action="store_true", help="skip the SAM wall scan")
+    ap.add_argument("--serve", type=int, default=0, metavar="PORT",
+                    help="serve the reception screen (web/index.html) on this port")
+    ap.add_argument("--wall", default="Wall 1", help="wall name shown at reception")
+    ap.add_argument("--demo", action="store_true",
+                    help="scripted climb + fall through the real logic; no camera, no API")
+    ap.add_argument("--headless", action="store_true",
+                    help="no window; write the annotated view to live.mp4")
+    ap.add_argument("--seconds", type=float, default=0, help="stop after N seconds")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
     if args.selftest:
         return selftest()
 
-    from openai import OpenAI
-    from src.env import load_api_key
-    key, _ = load_api_key(cfg.PROJECT_DIR)
-    client = OpenAI(api_key=key, base_url=cfg.GATEWAY_BASE_URL, timeout=30)
-
-    source = int(args.source) if args.source.isdigit() else args.source
-    cam = Camera(source)
-    cam.start()
-    while cam.latest() is None:
-        if cam.ended:
-            raise SystemExit("No frames from the source.")
-        time.sleep(0.05)
-
-    spotter = Spotter(fall_seconds=args.fall_seconds)
-    info = {"status": "starting", "latency": 0.0, "calls": 0}
-    shared = {"person": None, "scan": not args.no_scan, "stop": False}
     out_dir = cfg.OUTPUT_DIR / "live" / datetime.now().strftime(cfg.RUN_STAMP_FORMAT)
     out_dir.mkdir(parents=True, exist_ok=True)
+    info = {"status": "starting", "latency": 0.0, "calls": 0}
+    shared = {"person": None, "frame": None, "seq": 0, "jpeg": b"",
+              "scan": not (args.no_scan or args.demo), "stop": False}
+    frame_lock = threading.Lock()
     t0 = time.perf_counter()
+    clock = lambda: time.perf_counter() - t0
+
+    if args.demo:
+        spotter = Spotter(fall_seconds=args.fall_seconds, holds=[dict(h) for h in DEMO_HOLDS])
+        cam = None
+        info["status"] = "DEMO: scripted climb, no camera, no API"
+    else:
+        from openai import OpenAI
+        from src.env import load_api_key
+        key, _ = load_api_key(cfg.PROJECT_DIR)
+        client = OpenAI(api_key=key, base_url=cfg.GATEWAY_BASE_URL, timeout=30)
+        source = int(args.source) if args.source.isdigit() else args.source
+        cam = Camera(source)
+        cam.start()
+        while cam.latest() is None:
+            if cam.ended:
+                raise SystemExit("No frames from the source.")
+            time.sleep(0.05)
+        spotter = Spotter(fall_seconds=args.fall_seconds)
+
+    def latest_frame():
+        return demo_frame() if cam is None else cam.latest()
+
+    def publish(frame):
+        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        with frame_lock:
+            shared["frame"], shared["jpeg"] = frame, buf.tobytes() if ok else b""
+            shared["seq"] += 1
+
+    def on_person(person, frame):
+        shared["person"] = person
+        before = spotter.state
+        now = clock()
+        spotter.update(person, now)
+        if spotter.state != before:
+            print(f"[{now:7.1f}s] {before} -> {spotter.state}")
+            if spotter.state == "ALERT":
+                cv2.imwrite(str(out_dir / f"alert_{int(now)}s.jpg"), frame)
+                if not args.serve:
+                    beep()
 
     def worker():
         next_at = time.perf_counter()
+        demo_t0 = time.perf_counter()
         while not shared["stop"]:
             if shared["scan"]:
                 shared["scan"] = False
@@ -356,7 +516,17 @@ def main() -> int:
                 time.sleep(0.02)
                 continue
             next_at = time.perf_counter() + args.interval
-            frame = cam.latest()
+            frame = latest_frame()
+            publish(frame)
+            if args.demo:
+                t = time.perf_counter() - demo_t0
+                person, phase = demo_script(t, args.fall_seconds)
+                if phase == "got up" and spotter.state in ("READY", "LANDED"):
+                    demo_t0 = time.perf_counter()            # loop the script
+                info["status"] = f"DEMO: {phase}"
+                info["latency"], info["calls"] = 0.0, info["calls"]
+                on_person(person, frame)
+                continue
             try:
                 t = time.perf_counter()
                 person = request_pose(client, frame)
@@ -364,31 +534,60 @@ def main() -> int:
             except Exception as exc:
                 info["status"] = f"pose error: {exc}"[:80]
                 continue
-            shared["person"] = person
-            before = spotter.state
-            now = time.perf_counter() - t0
-            spotter.update(person, now)
-            if spotter.state != before:
-                print(f"[{now:7.1f}s] {before} -> {spotter.state}")
-                if spotter.state == "ALERT":
-                    cv2.imwrite(str(out_dir / f"alert_{int(now)}s.jpg"), frame)
-                    beep()
+            on_person(person, frame)
 
+    def frames_live():
+        """Between pose calls, keep the reception picture moving at ~5 fps."""
+        while not shared["stop"] and cam is not None:
+            frame = cam.latest()
+            if frame is not None:
+                publish(frame)
+            time.sleep(0.2)
+
+    ctx = {
+        "snapshot": lambda: snapshot_of(spotter, shared, info, clock(), args.wall),
+        "jpeg": lambda: shared["jpeg"],
+        "ack": lambda: spotter.acknowledge(clock()),
+        "reset": lambda: spotter.reset(),
+    }
     threading.Thread(target=worker, daemon=True).start()
+    threading.Thread(target=frames_live, daemon=True).start()
+    server = None
+    if args.serve:
+        server = serve(args.serve, ctx)
+        print(f"reception screen -> http://localhost:{args.serve}/")
+
     window = "Build & Boulder - live spotter"
-    cv2.namedWindow(window, cv2.WINDOW_NORMAL)
+    writer = None
+    show_window = not (args.headless or args.serve)
+    if args.headless:
+        h, w = latest_frame().shape[:2]
+        writer = cv2.VideoWriter(str(out_dir / "live.mp4"),
+                                 cv2.VideoWriter_fourcc(*"mp4v"), 1000 / 30, (w, h))
+    elif show_window:
+        cv2.namedWindow(window, cv2.WINDOW_NORMAL)
     last_beep = 0.0
     try:
         while True:
-            frame = cam.latest()
-            now = time.perf_counter() - t0
-            if frame is not None:
-                cv2.imshow(window, draw(frame, spotter, shared["person"], info, now))
-            if spotter.state == "ALERT" and now - last_beep > 3:
-                last_beep = now
-                threading.Thread(target=beep, daemon=True).start()
-            key = cv2.waitKey(30) & 0xFF
-            if key in (ord("q"), 27) or (cam.ended and cam.is_file and key != 255):
+            now = clock()
+            key = 255
+            if writer is not None or show_window:
+                frame = latest_frame()
+                if frame is not None:
+                    shown = draw(frame, spotter, shared["person"], info, now)
+                    if writer is not None:
+                        writer.write(shown)
+                    else:
+                        cv2.imshow(window, shown)
+            if show_window:
+                if spotter.state == "ALERT" and now - last_beep > 3:
+                    last_beep = now
+                    threading.Thread(target=beep, daemon=True).start()
+                key = cv2.waitKey(30) & 0xFF
+            else:
+                time.sleep(0.03)
+            ended = cam is not None and cam.ended and cam.is_file
+            if key in (ord("q"), 27) or ended or (args.seconds and now > args.seconds):
                 break
             if key == ord("a"):
                 spotter.acknowledge(now)
@@ -396,9 +595,17 @@ def main() -> int:
                 spotter.reset()
             elif key == ord("s"):
                 shared["scan"] = True
+    except KeyboardInterrupt:
+        pass
     finally:
         shared["stop"] = True
-        cv2.destroyAllWindows()
+        if server is not None:
+            server.shutdown()
+        if writer is not None:
+            writer.release()
+            print(f"video  -> {out_dir / 'live.mp4'}")
+        elif show_window:
+            cv2.destroyAllWindows()
         (out_dir / "events.json").write_text(json.dumps(spotter.events, indent=2))
         print(f"events -> {out_dir / 'events.json'}  ({info['calls']} pose calls, "
               f"~${info['calls'] * COST_PER_POSE:.3f})")

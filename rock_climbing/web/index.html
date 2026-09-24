@@ -1,0 +1,1748 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2F2F7">
+<title>Live Spotter</title>
+<style>
+:root{
+  --blue:#007AFF; --green:#34C759; --orange:#FF9500; --red:#FF3B30; --teal:#30B0C7; --gray:#8E8E93; --indigo:#5856D6;
+  --blueT:#0062CC; --greenT:#1E7B34; --orangeT:#A85400; --redT:#D70015; --tealT:#0B7285; --grayT:#545458; --indigoT:#3634A3;
+  --btnBlue:#0A6CDF;
+  --bg:#F2F2F7; --card:#FFFFFF; --label:#000; --label2:rgba(60,60,67,.76); --label3:rgba(60,60,67,.45);
+  --sep:rgba(60,60,67,.2); --fill:rgba(120,120,128,.12); --fill2:rgba(120,120,128,.08);
+  --route:#30C35A; --routeInk:#000;
+  --sat:54px; --sab:34px;
+  --font:-apple-system,"SF Pro","SF Pro Text","SF Pro Display",system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --ease:cubic-bezier(.32,.72,0,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);color:var(--label);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-tap-highlight-color:transparent;background:#E4E6EA}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-appearance:none;appearance:none}
+button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+[hidden]{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- Stage + device ---------- */
+.stage{height:100vh;height:100dvh;display:grid;place-items:center;background:radial-gradient(1100px 700px at 50% 0%,#FFFFFF 0%,#ECEEF1 55%,#DCDFE4 100%)}
+.caption{position:fixed;left:32px;top:32px;max-width:270px;color:#3a3a3c;font-size:13px;line-height:1.5}
+.caption b{display:block;font-size:17px;color:#000;margin-bottom:4px}
+@media (max-width:1000px){.caption{display:none}}
+.device{position:absolute;left:50%;top:50%;width:390px;height:844px;flex:none;border-radius:56px;background:var(--bg);overflow:hidden;isolation:isolate;
+  box-shadow:0 0 0 11px #1d1d1f,0 0 0 13px #4a4a4d,0 50px 90px -24px rgba(0,0,0,.38),0 18px 36px rgba(0,0,0,.12);transform-origin:center center}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:200;pointer-events:none}
+.statusbar{position:absolute;top:0;left:0;right:0;height:54px;padding:17px 30px 0 48px;display:flex;justify-content:space-between;font-weight:600;font-size:17px;z-index:199;pointer-events:none}
+.sb-icons{display:flex;gap:6px;align-items:center;padding-top:2px}
+.homebar{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:139px;height:5px;border-radius:3px;background:#000;z-index:200;pointer-events:none}
+@media (max-width:520px){
+  :root{--sat:max(env(safe-area-inset-top),20px);--sab:max(env(safe-area-inset-bottom),10px)}
+  .stage{display:block}
+  .device{width:100vw;height:100vh;height:100dvh;border-radius:0;box-shadow:none;transform:none!important;position:relative;left:auto;top:auto}
+  .island,.statusbar,.homebar{display:none}
+}
+
+/* ---------- Screens, nav bars ---------- */
+.screen{position:absolute;inset:0;display:none}
+.screen.active{display:block}
+.scroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:calc(var(--sat) + 52px) 16px calc(var(--sab) + 104px);scrollbar-width:none;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{display:none}
+.navbar{position:absolute;top:0;left:0;right:0;z-index:20;height:calc(var(--sat) + 52px);padding:var(--sat) 16px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;transition:background .25s,box-shadow .25s}
+.navbar.scrolled{background:rgba(242,242,247,.74);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);box-shadow:0 .5px 0 var(--sep)}
+.ntitle{position:absolute;left:50%;transform:translateX(-50%);bottom:15px;font-weight:600;font-size:17px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.navbar.scrolled .ntitle{opacity:1}
+.glass{background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(16px) saturate(180%);backdrop-filter:blur(16px) saturate(180%);
+  box-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 16px rgba(0,0,0,.07),inset 0 0 0 .5px rgba(0,0,0,.07),inset 0 1px 0 rgba(255,255,255,.9)}
+.iconbtn{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none}
+.capsule{min-height:44px;padding:0 16px;border-radius:22px;display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;color:var(--label2);white-space:nowrap}
+.capsule.blue{color:var(--blueT)}
+.spacer{width:44px}
+
+.ltitle{font-size:34px;line-height:41px;font-weight:700;letter-spacing:.2px;margin:2px 4px 2px}
+.lsub{font-size:15px;color:var(--label2);margin:0 4px 14px;line-height:1.35}
+.sh{font-size:13px;font-weight:500;text-transform:uppercase;letter-spacing:.3px;color:var(--label2);margin:26px 16px 8px}
+.foot{font-size:13px;color:var(--label2);margin:8px 16px 0;line-height:1.45}
+.group{background:var(--card);border-radius:26px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 16px;position:relative;width:100%;text-align:left}
+.row + .row::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.group.indent .row + .row::before{left:62px}
+.row .t{flex:1;min-width:0;font-size:17px;line-height:1.25}
+.row .t small{display:block;font-size:14px;color:var(--label2);margin-top:2px}
+.row .v{color:var(--label2);font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.row .v.blue{color:var(--blueT)}
+.chev{color:var(--label3);flex:none}
+.rowbtn:active{background:rgba(0,0,0,.05)}
+
+/* ---------- Tones ---------- */
+[data-tone=gray]{--tone:var(--gray);--toneT:var(--grayT);--toneBg:rgba(142,142,147,.14)}
+[data-tone=blue]{--tone:var(--blue);--toneT:var(--blueT);--toneBg:rgba(0,122,255,.1)}
+[data-tone=green]{--tone:var(--green);--toneT:var(--greenT);--toneBg:rgba(52,199,89,.13)}
+[data-tone=teal]{--tone:var(--teal);--toneT:var(--tealT);--toneBg:rgba(48,176,199,.13)}
+[data-tone=orange]{--tone:var(--orange);--toneT:var(--orangeT);--toneBg:rgba(255,149,0,.13)}
+[data-tone=red]{--tone:var(--red);--toneT:var(--redT);--toneBg:rgba(255,59,48,.1)}
+[data-tone=indigo]{--tone:var(--indigo);--toneT:var(--indigoT);--toneBg:rgba(88,86,214,.1)}
+
+/* ---------- Live ---------- */
+.routechip{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px 0 12px;margin:0 0 14px;border-radius:22px;background:var(--card);font-size:15px;width:100%}
+.routechip .dot{width:18px;height:18px;border-radius:9px;background:var(--route);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);flex:none}
+.routechip .rt{flex:1;text-align:left;font-weight:600}
+.routechip .rt span{font-weight:400;color:var(--label2)}
+.routechip .ch{color:var(--blueT);font-weight:600}
+.hero{background:var(--card);border-radius:28px;padding:18px 18px 16px;position:relative;transition:box-shadow .3s}
+.hero[data-tone=red]{box-shadow:0 0 0 2px var(--red)}
+.hero-top{display:flex;align-items:center;gap:12px}
+.sicon{width:48px;height:48px;border-radius:24px;background:var(--tone);color:#fff;display:grid;place-items:center;flex:none;transition:background .3s}
+.hero-id{min-width:0;flex:1}
+.slabel{font-size:13px;font-weight:600;color:var(--label2);text-transform:uppercase;letter-spacing:.35px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sname{font-size:34px;font-weight:700;line-height:1.08;color:var(--toneT);letter-spacing:.2px;transition:color .3s}
+.hero-right{margin-left:auto;text-align:right;flex:none}
+.timer{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.timer-cap{font-size:12px;color:var(--label2);text-transform:uppercase;letter-spacing:.3px}
+.ssub{font-size:17px;color:var(--label2);margin-top:12px;line-height:1.35}
+.holdtrack{display:flex;flex-wrap:wrap;gap:4px;margin-top:14px}
+.hdot{flex:1 0 22px;height:30px;border-radius:9px;background:var(--fill);display:grid;place-items:center;font-size:12px;font-weight:600;color:var(--label2);font-variant-numeric:tabular-nums;transition:background .25s,color .25s,transform .25s}
+.hdot.on{background:var(--route);color:var(--routeInk)}
+.hdot.pop{transform:scale(1.12)}
+.hero-actions{display:flex;gap:10px;margin-top:14px}
+.hero-actions:empty{display:none}
+.btn{min-height:50px;border-radius:25px;padding:0 18px;font-size:17px;font-weight:600;flex:1}
+.btn.gray{background:rgba(120,120,128,.14);color:#000}
+.btn.red{background:var(--redT);color:#fff}
+.btn.blue{background:var(--btnBlue);color:#fff}
+
+.cam{position:relative;margin-top:12px;border-radius:26px;overflow:hidden;background:#2a2a2c;aspect-ratio:360/440}
+.cam > svg{display:block;width:100%;height:100%}
+.cam-chip{position:absolute;top:12px;left:12px;height:30px;padding:0 11px;border-radius:15px;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.cam-chip.r{left:auto;right:12px;font-weight:500}
+.cam-chip.b{top:auto;bottom:12px;font-weight:500}
+.rec{width:8px;height:8px;border-radius:4px;background:#FF453A}
+.fpulse{width:8px;height:8px;border-radius:4px;background:#30D158;opacity:.35;transition:opacity .15s}
+.fpulse.on{opacity:1}
+.cam{--skel:#0A84FF}
+.cam[data-tone=gray]{--skel:#FFFFFF}
+.cam[data-tone=green]{--skel:#30D158}
+.cam[data-tone=teal]{--skel:#40C8E0}
+.cam[data-tone=orange]{--skel:#FF9F0A}
+.cam[data-tone=red]{--skel:#FF453A}
+.bone-sh{stroke:rgba(0,0,0,.45);stroke-width:7;stroke-linecap:round}
+.bone{stroke:var(--skel);stroke-width:3.5;stroke-linecap:round;transition:stroke .3s}
+.joint{fill:#fff;stroke:var(--skel);stroke-width:2.2}
+.headc{fill:rgba(255,255,255,.22);stroke:var(--skel);stroke-width:3}
+.rh-halo{fill:none;stroke:#fff;stroke-width:2.5;opacity:0;transform-box:fill-box;transform-origin:center}
+.rh.lit .rh-halo{opacity:1}
+.rh.just .rh-halo{animation:ping .9s ease-out}
+.rh-badge circle{fill:#fff;stroke:rgba(0,0,0,.35);stroke-width:1}
+.rh-badge text{font:700 10px var(--font);fill:#000}
+.rh.lit .rh-badge circle{fill:var(--route);stroke:#fff;stroke-width:1.5}
+.rh.lit .rh-badge text{fill:var(--routeInk)}
+@keyframes ping{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.9);opacity:0}}
+
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.tile{background:var(--card);border-radius:20px;padding:12px 12px 11px;min-width:0}
+.tile .k{font-size:12px;color:var(--label2);text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.tile .val{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px;white-space:nowrap}
+.tile .s{font-size:12px;color:var(--label2);margin-top:1px;white-space:nowrap}
+
+.evrow .ic{width:30px;height:30px;border-radius:15px;background:var(--toneBg);color:var(--toneT);display:grid;place-items:center;flex:none}
+.evrow .tm{font-size:15px;color:var(--label2);font-variant-numeric:tabular-nums}
+
+/* ---------- Timeline ---------- */
+.seg{display:flex;background:rgba(120,120,128,.12);border-radius:22px;padding:3px;margin-bottom:14px}
+.seg button{flex:1;min-height:38px;border-radius:19px;font-size:15px;font-weight:600;color:var(--label)}
+.seg button[aria-pressed=true]{background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.12),0 1px 1px rgba(0,0,0,.04)}
+.tl{background:var(--card);border-radius:26px;padding:8px 0}
+.tl-item{display:grid;grid-template-columns:68px 18px 1fr;column-gap:10px;padding:0 16px 0 10px;position:relative}
+.tl-time{font-size:13px;font-variant-numeric:tabular-nums;color:var(--label2);padding-top:13px;text-align:right}
+.tl-rail{position:relative}
+.tl-rail::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:rgba(120,120,128,.18)}
+.tl-item:first-child .tl-rail::before{top:18px}
+.tl-item:last-child .tl-rail::before{bottom:calc(100% - 18px)}
+.tl-dot{position:absolute;left:50%;top:13px;width:12px;height:12px;margin-left:-6px;border-radius:6px;background:var(--tone);box-shadow:0 0 0 3px #fff}
+.tl-body{padding:10px 0 12px;min-width:0}
+.tl-title{font-size:16px;font-weight:600;line-height:1.3}
+.tl-title .who{color:var(--toneT)}
+.tl-detail{font-size:14px;color:var(--label2);line-height:1.35;margin-top:1px}
+.tl-item.safety .tl-body{background:var(--toneBg);margin:4px 0;padding:8px 10px;border-radius:14px}
+.tl-item.safety .tl-dot{top:17px}
+.tl-empty{padding:24px;text-align:center;color:var(--label2)}
+
+/* ---------- Leaderboard ---------- */
+.lb-row{padding:14px 16px;position:relative}
+.lb-row + .lb-row::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.lb-main{display:flex;align-items:center;gap:12px}
+.rank{width:26px;text-align:center;font-weight:700;font-size:17px;color:var(--label2);font-variant-numeric:tabular-nums;flex:none}
+.rank.r1{color:#A67C00}.rank.r2{color:#6E6E73}.rank.r3{color:#9A5B2E}
+.avatar{width:40px;height:40px;border-radius:20px;color:#fff;font-weight:600;font-size:15px;display:grid;place-items:center;flex:none}
+.lb-name{flex:1;min-width:0}
+.lb-name .n{font-size:17px;font-weight:600}
+.lb-name .d{font-size:14px;color:var(--label2);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:600;background:var(--toneBg);color:var(--toneT)}
+.lb-time{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;flex:none}
+.lb-time.muted{color:var(--label3);font-size:17px}
+.tip{display:flex;gap:8px;margin:10px 0 0 38px;padding:10px 12px;border-radius:14px;background:rgba(0,122,255,.07);font-size:14px;line-height:1.4;color:#1c1c1e}
+.tip b{color:var(--blueT);font-weight:600}
+.tip svg{flex:none;color:var(--blueT);margin-top:1px}
+
+/* ---------- Spotters ---------- */
+.duty{background:var(--card);border-radius:28px;padding:16px;display:flex;align-items:center;gap:12px}
+.duty .t{flex:1}
+.duty .t b{display:block;font-size:17px}
+.duty .t span{font-size:14px;color:var(--label2)}
+.stat{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--label2);white-space:nowrap}
+.stat i{width:8px;height:8px;border-radius:4px;background:var(--green);display:inline-block}
+.stat.busy i{background:var(--orange)}
+.step{width:30px;height:30px;border-radius:15px;background:var(--toneBg);color:var(--toneT);font-weight:700;font-size:15px;display:grid;place-items:center;flex:none}
+
+/* ---------- Switch / stepper / swatches ---------- */
+.switch{position:relative;width:51px;height:31px;border-radius:16px;background:rgba(120,120,128,.2);transition:background .25s;flex:none}
+.switch::before{content:"";position:absolute;inset:-7px -4px}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .25s var(--ease)}
+.switch[aria-checked=true]{background:var(--green)}
+.switch[aria-checked=true]::after{transform:translateX(20px)}
+.stepper{display:flex;background:rgba(120,120,128,.12);border-radius:20px;flex:none}
+.stepper button{width:50px;height:40px;font-size:22px;font-weight:500;display:grid;place-items:center}
+.stepper button + button{box-shadow:inset .5px 0 0 var(--sep)}
+.stepper button:disabled{color:var(--label3);cursor:default}
+.swatches{display:flex;gap:10px;padding:14px 16px;flex-wrap:wrap}
+.swatch{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.swatch[aria-checked=true]{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--c)}
+.swatch svg{opacity:0}
+.swatch[aria-checked=true] svg{opacity:1}
+.seg.small{margin:0;flex:none;width:170px}
+.seg.small button{min-height:36px;font-size:14px}
+
+/* ---------- Tab bar ---------- */
+.tabbar{position:absolute;left:14px;right:14px;bottom:max(calc(var(--sab) - 12px),10px);height:64px;border-radius:32px;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);padding:4px}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;font-weight:600;color:#3a3a3c;border-radius:28px;min-height:44px}
+.tab[aria-selected=true]{color:var(--blueT);background:rgba(120,120,128,.14)}
+.tab .badge{position:absolute;top:5px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+
+/* ---------- Sheet, menu, banner ---------- */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .3s;z-index:60}
+.scrim.show{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;top:calc(var(--sat) + 10px);background:var(--bg);border-radius:38px;z-index:61;transform:translateY(110%);transition:transform .45s var(--ease);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -10px 40px rgba(0,0,0,.15);visibility:hidden}
+.sheet.show{transform:none;visibility:visible}
+.grabber{width:36px;height:5px;border-radius:3px;background:rgba(60,60,67,.3);margin:6px auto 0;flex:none}
+.sheet-nav{display:flex;align-items:center;justify-content:space-between;padding:6px 12px 6px;flex:none}
+.sheet-nav h2{font-size:17px;font-weight:600}
+.sheet-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 16px 32px;scrollbar-width:none}
+.menu{position:absolute;top:calc(var(--sat) + 50px);left:16px;width:262px;border-radius:24px;z-index:70;padding:6px 0;transform-origin:top left;transform:scale(.5);opacity:0;pointer-events:none;transition:transform .3s var(--ease),opacity .2s;background:rgba(250,250,252,.9)}
+.menu.show{transform:none;opacity:1;pointer-events:auto}
+.menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:46px;padding:0 18px;font-size:17px;text-align:left}
+.menu button:hover{background:rgba(0,0,0,.05)}
+.menu button small{display:block;font-size:13px;color:var(--label2)}
+.menu hr{border:0;height:6px;background:rgba(120,120,128,.1);margin:4px 0}
+.banner{position:absolute;top:calc(var(--sat) + 4px);left:10px;right:10px;z-index:190;border-radius:26px;padding:12px 14px;display:flex;gap:12px;align-items:center;transform:translateY(calc(-100% - 90px));transition:transform .5s var(--ease)}
+.banner.show{transform:none}
+.banner .ic{width:38px;height:38px;border-radius:10px;background:var(--tone);color:#fff;display:grid;place-items:center;flex:none}
+.banner b{display:block;font-size:15px}
+.banner span{font-size:15px;color:#3a3a3c}
+
+/* ---------- Alert takeover ---------- */
+.takeover{position:absolute;inset:0;z-index:80;background:linear-gradient(180deg,#FFF0EF 0%,#FFFFFF 42%);display:flex;flex-direction:column;padding:calc(var(--sat) + 14px) 22px calc(var(--sab) + 10px);transform:translateY(100%);transition:transform .5s var(--ease);visibility:hidden}
+.takeover.show{transform:none;visibility:visible}
+.to-pane{display:flex;flex-direction:column;flex:1;min-height:0}
+.to-kicker{display:flex;align-items:center;gap:8px;color:var(--redT);font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:.4px}
+.to-title{font-size:36px;line-height:1.1;font-weight:700;margin-top:10px;letter-spacing:.1px}
+.to-body{font-size:20px;line-height:1.35;color:#3a3a3c;margin-top:10px}
+.to-ring{flex:1;min-height:170px;display:grid;place-items:center;position:relative}
+.to-ring svg{width:188px;height:188px}
+.to-ring-in{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.to-num{font-size:54px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;color:var(--redT)}
+.to-cap{font-size:14px;color:var(--label2);margin-top:6px;line-height:1.3}
+.to-meta{font-size:14px;color:var(--label2);text-align:center;margin-bottom:14px;font-variant-numeric:tabular-nums;line-height:1.4}
+.to-actions{display:flex;flex-direction:column;gap:12px}
+.bigbtn{min-height:62px;border-radius:31px;font-size:21px;font-weight:600;width:100%;display:flex;align-items:center;justify-content:center;gap:10px}
+.bigbtn.ok{background:rgba(120,120,128,.16);color:#000}
+.bigbtn.staff{background:var(--redT);color:#fff}
+.bigbtn.blue{background:var(--btnBlue);color:#fff}
+.to-foot{font-size:14px;color:var(--label2);text-align:center;margin-top:12px;line-height:1.4}
+.okmark{width:84px;height:84px;border-radius:42px;background:rgba(52,199,89,.14);color:var(--greenT);display:grid;place-items:center;margin:26px 0 8px}
+.guide{margin-top:18px;background:var(--card);border-radius:22px;box-shadow:0 0 0 .5px var(--sep)}
+.guide .row{font-size:17px}
+
+/* ---------- Pick your route ---------- */
+.pick{position:absolute;inset:0;z-index:55;background:var(--bg);transform:translateY(0);transition:transform .5s var(--ease),visibility .5s;display:flex;flex-direction:column}
+.pick.hide{transform:translateY(100%);visibility:hidden}
+.pk-pane{position:absolute;inset:0;display:flex;flex-direction:column;padding:calc(var(--sat)) 0 calc(var(--sab) + 6px);transition:opacity .35s}
+.pk-pane.off{opacity:0;pointer-events:none}
+.pk-nav{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex:none}
+.pk-step{font-size:13px;font-weight:600;color:var(--label2);text-transform:uppercase;letter-spacing:.35px}
+.pk-head{padding:0 20px 12px;flex:none}
+.pk-head h2{font-size:30px;line-height:1.12;font-weight:700}
+.pk-head p{font-size:15px;color:var(--label2);margin-top:4px}
+.viewfinder{position:relative;flex:1;min-height:0;margin:0 16px;border-radius:26px;overflow:hidden;background:#1c1c1e}
+.viewfinder svg{position:absolute;inset:0;width:100%;height:100%}
+.vf-corners{position:absolute;inset:18px;pointer-events:none}
+.vf-corners i{position:absolute;width:28px;height:28px;border:3px solid rgba(255,255,255,.9)}
+.vf-corners i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0;border-top-left-radius:12px}
+.vf-corners i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0;border-top-right-radius:12px}
+.vf-corners i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0;border-bottom-left-radius:12px}
+.vf-corners i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0;border-bottom-right-radius:12px}
+.vf-focus{position:absolute;left:50%;top:44%;width:76px;height:76px;margin:-38px 0 0 -38px;border:1.5px solid #FFD60A;border-radius:6px;animation:focus 2.4s var(--ease) infinite}
+@keyframes focus{0%{transform:scale(1.3);opacity:0}15%{transform:scale(1);opacity:1}70%{opacity:1}100%{opacity:0}}
+.vf-hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);white-space:nowrap;height:32px;padding:0 14px;border-radius:16px;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:#fff;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px}
+.vf-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.vf-flash.go{animation:flash .45s ease-out}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+.shutter-row{height:120px;display:grid;place-items:center;flex:none}
+.shutter{width:78px;height:78px;border-radius:39px;background:#fff;box-shadow:0 0 0 4px var(--bg),0 0 0 7px #1c1c1e,0 6px 16px rgba(0,0,0,.18);transition:transform .12s}
+.shutter:active,.shutter.pressed{transform:scale(.9)}
+.shutter-cap{font-size:13px;color:var(--label2);margin-top:-6px;text-align:center}
+.photo{position:relative;flex:1;min-height:0;margin:0 16px;border-radius:26px;overflow:hidden;background:#C9C3B6}
+.photo svg{position:absolute;inset:0;width:100%;height:100%}
+.photo-chip{position:absolute;top:12px;left:12px;height:30px;padding:0 11px;border-radius:15px;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.photo-chip i{width:10px;height:10px;border-radius:5px;background:var(--c);box-shadow:0 0 0 1.5px #fff}
+.flow{animation:flow 1.4s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-18}}
+.carousel{position:relative;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;padding:12px 28px 2px;scrollbar-width:none;flex:none;overscroll-behavior-x:contain}
+.carousel::-webkit-scrollbar{display:none}
+.rcard{flex:0 0 calc(100% - 56px);scroll-snap-align:center;background:var(--card);border-radius:24px;padding:14px 16px;transition:transform .3s var(--ease),box-shadow .3s}
+.rcard.cur{box-shadow:0 0 0 2px var(--c)}
+.rc-top{display:flex;align-items:center;gap:12px}
+.rc-chip{width:34px;height:34px;border-radius:17px;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);flex:none}
+.rc-name{font-size:20px;font-weight:700;line-height:1.1}
+.rc-meta{font-size:14px;color:var(--label2);margin-top:2px}
+.rc-grade{margin-left:auto;text-align:right;flex:none}
+.rc-grade .pill{font-size:13px;height:26px;padding:0 10px;border-radius:13px}
+.rc-grade small{display:block;font-size:11px;color:var(--label2);margin-top:3px;text-transform:uppercase;letter-spacing:.3px}
+.rc-bars{display:flex;gap:4px;margin-top:12px}
+.rc-bars i{flex:1;height:6px;border-radius:3px;background:var(--fill)}
+.rc-bars i.on{background:var(--toneT)}
+.rc-note{font-size:14px;color:var(--label2);margin-top:8px;line-height:1.35}
+.dots{display:flex;justify-content:center;flex:none;height:32px;align-items:center}
+.dots button{width:28px;height:32px;display:grid;place-items:center}
+.dots button i{display:block;width:8px;height:8px;border-radius:4px;background:var(--c);opacity:.4;transition:width .3s var(--ease),opacity .3s;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.dots button[aria-current=true] i{width:22px;opacity:1}
+.pk-cta{padding:4px 16px 0;flex:none}
+.primary{width:100%;min-height:56px;border-radius:28px;background:var(--btnBlue);color:#fff;font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .12s}
+.primary:active,.primary.pressed{transform:scale(.97)}
+.primary .cd{width:14px;height:14px;border-radius:7px;background:var(--c);box-shadow:0 0 0 2px #fff}
+
+/* ---------- Live mode ---------- */
+body.live .mock-only{display:none!important}
+body:not(.live) .live-only{display:none!important}
+.cam .live-img,.cam .live-ov{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cam .live-img{object-fit:contain;background:#111}
+body.live .cam{background:#111}
+.lh-sh{fill:none;stroke:rgba(0,0,0,.55)}
+.lh-r{fill:none;stroke:var(--route)}
+.lh.lit .lh-r{fill:var(--route);fill-opacity:.35;stroke:#fff}
+.lh-b circle{fill:#fff;stroke:rgba(0,0,0,.35)}
+.lh-b text{fill:#000;font-weight:700;font-family:var(--font)}
+.lh.lit .lh-b circle{fill:var(--route);stroke:#fff}
+.lh.lit .lh-b text{fill:var(--routeInk)}
+.livebadge{color:#000;gap:8px}
+.livebadge .rec{animation:blink 1.6s ease-in-out infinite}
+.livebadge.off .rec{background:var(--gray);animation:none}
+@keyframes blink{50%{opacity:.35}}
+.rowbtn.danger .t{color:var(--redT)}
+button:disabled{opacity:.55;cursor:default}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="caption mock-only"><b>Live Spotter · Concept B</b>“Calm safety”. Light, grouped, human‑in‑the‑loop. Use <strong>▶ Simulate</strong> on the Live tab to play Pick route → Ready → Climbing → Down → Alert.</div>
+
+  <div class="device" id="device">
+    <div class="island" aria-hidden="true"></div>
+    <div class="statusbar" aria-hidden="true">
+      <span id="sbTime" class="num">19:04</span>
+      <span class="sb-icons">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#000"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#000"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#000"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#000"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5 5.6 9a3.4 3.4 0 0 1 4.8 0zM3.5 6.9a6.4 6.4 0 0 1 9 0l-1.4 1.4a4.4 4.4 0 0 0-6.2 0zM1.3 4.7a9.5 9.5 0 0 1 13.4 0l-1.4 1.4a7.5 7.5 0 0 0-10.6 0z" fill="#000"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.8" fill="none" stroke="rgba(0,0,0,.4)"/><rect x="2" y="2" width="17" height="9" rx="2.5" fill="#000"/><path d="M25 4.5v4a2 2 0 0 0 0-4z" fill="rgba(0,0,0,.45)"/></svg>
+      </span>
+    </div>
+
+    <!-- ================= LIVE ================= -->
+    <section class="screen active" id="s-live" aria-label="Live">
+      <header class="navbar">
+        <button class="capsule glass mock-only" id="simBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Simulate a session">▶ Simulate</button>
+        <span class="capsule glass livebadge live-only" id="liveBadge" role="status" aria-label="Connected to the live camera"><span class="rec"></span>LIVE</span>
+        <div class="ntitle">Live Spotter</div>
+        <button class="iconbtn glass" id="openSettings" aria-label="Settings">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.5"/><circle cx="9.5" cy="17" r="2.5"/></svg>
+        </button>
+      </header>
+      <div class="scroll">
+        <h1 class="ltitle">Live Spotter</h1>
+        <p class="lsub">Build &amp; Boulder · City Bouldering Aldgate</p>
+        <button class="routechip" id="routeChip" aria-label="Change route">
+          <span class="dot"></span><span class="rt" id="routeChipText">Green route</span><span class="ch mock-only">Change</span>
+        </button>
+
+        <div class="hero" id="hero" data-tone="gray">
+          <div class="hero-top">
+            <div class="sicon" id="sicon" aria-hidden="true"></div>
+            <div class="hero-id">
+              <div class="slabel" id="slabel">Sasha · Green route</div>
+              <div class="sname" id="sname" aria-live="polite">Ready</div>
+            </div>
+            <div class="hero-right" id="heroRight"></div>
+          </div>
+          <p class="ssub" id="ssub"></p>
+          <div class="holdtrack" id="holdtrack" role="img" aria-label="Holds touched"></div>
+          <div class="hero-actions" id="heroActions"></div>
+        </div>
+
+        <div class="cam" id="cam" data-tone="gray">
+          <svg id="wall" viewBox="0 0 360 440" role="img" aria-label="Camera view of Wall 3 with the climber’s pose overlay"></svg>
+          <img id="liveImg" class="live-img" alt="Live camera view of the wall" hidden>
+          <svg id="liveSvg" class="live-ov" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden></svg>
+          <div class="cam-chip"><span class="rec"></span>LIVE</div>
+          <div class="cam-chip r" id="camWall">Wall 3 · Cam 1</div>
+          <div class="cam-chip b" aria-live="off"><span class="fpulse" id="fpulse"></span><span id="camStatus" class="num">ViTPose · 0.31 s</span></div>
+        </div>
+
+        <div class="tiles">
+          <div class="tile"><div class="k">Pose</div><div class="val" id="tLat">0.31 s</div><div class="s">latency</div></div>
+          <div class="tile"><div class="k">Per call</div><div class="val">$0.001</div><div class="s" id="tInt">1 frame / s</div></div>
+          <div class="tile"><div class="k">Tonight</div><div class="val" id="tCost">$1.28</div><div class="s" id="tCalls">1,284 calls</div></div>
+        </div>
+        <p class="foot" id="statusLine">One still frame per second goes to ViTPose via VLM Run. No video is stored. Live Spotter never calls emergency services by itself.</p>
+
+        <h2 class="sh">Recent</h2>
+        <div class="group indent" id="recent"></div>
+      </div>
+    </section>
+
+    <!-- ================= TIMELINE ================= -->
+    <section class="screen" id="s-log" aria-label="Timeline">
+      <header class="navbar"><span class="spacer"></span><div class="ntitle">Timeline</div><span class="spacer"></span></header>
+      <div class="scroll">
+        <h1 class="ltitle">Timeline</h1>
+        <p class="lsub">Tonight · Wall 3 camera</p>
+        <div class="tiles" style="margin:0 0 14px">
+          <div class="tile"><div class="k">Alerts</div><div class="val" id="sumAlerts">1</div><div class="s">tonight</div></div>
+          <div class="tile"><div class="k">Response</div><div class="val" id="sumResp">7 s</div><div class="s">average</div></div>
+          <div class="tile"><div class="k">999 calls</div><div class="val">0</div><div class="s">by design</div></div>
+        </div>
+        <div class="seg" role="group" aria-label="Filter">
+          <button aria-pressed="true" data-f="all">All events</button>
+          <button aria-pressed="false" data-f="safety">Safety only</button>
+        </div>
+        <div class="tl" id="timeline"></div>
+        <p class="foot">Every alert ends with a person’s decision. Times are from this phone’s clock.</p>
+      </div>
+    </section>
+
+    <!-- ================= LEADERBOARD ================= -->
+    <section class="screen" id="s-team" aria-label="Leaderboard">
+      <header class="navbar"><span class="spacer"></span><div class="ntitle">Leaderboard</div><span class="spacer"></span></header>
+      <div class="scroll">
+        <h1 class="ltitle">Leaderboard</h1>
+        <p class="lsub" id="lbSub">Green route · 3 of 6 topped</p>
+        <div class="group" id="board"></div>
+        <p class="foot">Ranked by: topped first, then fastest, then fewest holds. Coach tips come from each climber’s pose data.</p>
+      </div>
+    </section>
+
+    <!-- ================= SPOTTERS ================= -->
+    <section class="screen" id="s-staff" aria-label="Spotters">
+      <header class="navbar"><span class="spacer"></span><div class="ntitle">Spotters</div><span class="spacer"></span></header>
+      <div class="scroll">
+        <h1 class="ltitle">Spotters</h1>
+        <p class="lsub">The app only asks. People decide.</p>
+        <div class="duty">
+          <div class="avatar" style="background:#1E7B34">KI</div>
+          <div class="t"><b>Kieran (you)</b><span id="dutyText">On duty · Spotter for Wall 3</span></div>
+          <button class="switch" role="switch" aria-checked="true" id="dutySwitch" aria-label="On duty"></button>
+        </div>
+
+        <h2 class="sh">On duty tonight</h2>
+        <div class="group indent">
+          <div class="row"><div class="avatar" style="background:#7B3FB3">MI</div><div class="t">Min<small>Staff · Front desk</small></div><span class="stat"><i></i>Available</span></div>
+          <div class="row"><div class="avatar" style="background:#0B7285">TH</div><div class="t">Thomas<small>Duty manager</small></div><span class="stat"><i></i>Available</span></div>
+          <div class="row"><div class="avatar" style="background:#AD5700">SA</div><div class="t">Sagar<small>Team captain</small></div><span class="stat busy"><i></i>Climbing</span></div>
+        </div>
+
+        <h2 class="sh">When someone is down</h2>
+        <div class="group indent">
+          <div class="row" data-tone="orange"><span class="step">1</span><div class="t">Fall detected<small>Pose shows the climber lying on the mat.</small></div></div>
+          <div class="row" data-tone="orange"><span class="step">2</span><div class="t">Wait <span id="howSecs">30</span> seconds<small>Most people get up by themselves.</small></div></div>
+          <div class="row" data-tone="red"><span class="step">3</span><div class="t">Ask a person<small>Spotters’ phones show “Check on the climber”.</small></div></div>
+          <div class="row" data-tone="green"><span class="step">4</span><div class="t">A person decides<small>“They’re OK” closes it. “Get staff” pages Min and Thomas.</small></div></div>
+        </div>
+        <p class="foot">Live Spotter never calls 999 or any outside service. If there’s any doubt, call 999 yourself.</p>
+
+        <h2 class="sh">Who gets alerts</h2>
+        <div class="group" id="routing"></div>
+      </div>
+    </section>
+
+    <!-- ================= TAB BAR ================= -->
+    <nav class="tabbar glass" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" aria-selected="true" data-tab="live">
+        <svg width="26" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4"/></svg>Live</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="log">
+        <svg width="26" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 6h10M10 12h10M10 18h10"/><circle cx="5" cy="6" r="1.4" fill="currentColor"/><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="5" cy="18" r="1.4" fill="currentColor"/></svg>Timeline<span class="badge" id="logBadge" hidden>0</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="team">
+        <svg width="26" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3.3 4M16 6h3a3 3 0 0 1-3.3 4M12 13v4M8.5 20h7M10 17h4"/></svg>Leaderboard</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="staff">
+        <svg width="26" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.8 14a4.5 4.5 0 0 1 5.2 4.5"/></svg>Spotters</button>
+    </nav>
+
+    <!-- ================= PICK YOUR ROUTE ================= -->
+    <div class="pick hide" id="pick" role="dialog" aria-modal="true" aria-label="Pick your route">
+      <!-- Step 1: photograph -->
+      <div class="pk-pane" id="pkShoot">
+        <div class="pk-nav">
+          <span class="pk-step">Step 1 of 2</span>
+          <button class="iconbtn glass" id="pkClose" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 3l10 10M13 3 3 13"/></svg>
+          </button>
+        </div>
+        <div class="pk-head"><h2>Photograph the wall</h2><p>We’ll find the routes by hold colour.</p></div>
+        <div class="viewfinder">
+          <svg id="vfWall" viewBox="0 0 360 440" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+          <div class="vf-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="vf-focus" aria-hidden="true"></div>
+          <div class="vf-hint">Fit the whole wall in the frame</div>
+          <div class="vf-flash" id="vfFlash"></div>
+        </div>
+        <div class="shutter-row"><button class="shutter" id="shutter" aria-label="Take photo of the wall"></button></div>
+      </div>
+      <!-- Step 2: choose -->
+      <div class="pk-pane off" id="pkChoose" aria-hidden="true">
+        <div class="pk-nav">
+          <button class="capsule glass blue" id="pkRetake">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>Retake</button>
+          <span class="pk-step">Step 2 of 2</span>
+        </div>
+        <div class="pk-head"><h2>Pick your route</h2><p id="pkFound">5 routes found on Wall 3</p></div>
+        <div class="photo">
+          <svg id="pickWall" viewBox="0 0 360 440" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Photo of the wall with the selected route highlighted"></svg>
+          <div class="photo-chip" id="photoChip"><i></i><span>Green · 7 holds</span></div>
+        </div>
+        <div class="carousel" id="carousel" tabindex="0" aria-roledescription="carousel" aria-label="Routes found on the wall"></div>
+        <div class="dots" id="dots" role="group" aria-label="Choose route"></div>
+        <div class="pk-cta"><button class="primary" id="climbBtn"><span class="cd"></span>Climb this route</button></div>
+      </div>
+    </div>
+
+    <!-- ================= SIMULATE MENU ================= -->
+    <div class="menu glass" id="simMenu" role="menu" aria-label="Simulate">
+      <button role="menuitem" data-sim="fall"><span>Fall → Alert<small>Pick route · climb · down 30 s · alert</small></span>▶</button>
+      <button role="menuitem" data-sim="top"><span>Top out<small>Both hands on the top hold</small></span>▶</button>
+      <button role="menuitem" data-sim="land"><span>Climb &amp; land<small>Drops off, upright on the mat</small></span>▶</button>
+      <hr>
+      <button role="menuitem" data-sim="pick"><span>Pick route</span></button>
+      <button role="menuitem" data-sim="reset"><span>Reset</span></button>
+    </div>
+
+    <!-- ================= SETTINGS SHEET ================= -->
+    <div class="scrim" id="scrim"></div>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-hidden="true">
+      <div class="grabber" aria-hidden="true"></div>
+      <div class="sheet-nav">
+        <span class="spacer"></span>
+        <h2 id="sheetTitle">Settings</h2>
+        <button class="capsule glass blue" id="sheetDone">Done</button>
+      </div>
+      <div class="sheet-body">
+        <h3 class="sh" style="margin-top:10px">Route</h3>
+        <div class="group live-only">
+          <div class="row"><div class="t">Hold colour<small>Set on the camera phone</small></div><span class="v" id="liveColour">Green</span></div>
+        </div>
+        <div class="group mock-only">
+          <div class="row"><div class="t">Hold colour<small id="colourNote">Only green holds count.</small></div></div>
+          <div class="swatches" id="swatches" role="radiogroup" aria-label="Hold colour"></div>
+        </div>
+
+        <h3 class="sh">Detection</h3>
+        <div class="group">
+          <div class="row live-only"><div class="t">Alert after lying down<small>Set on the camera phone</small></div><span class="v" id="liveFall">30 s</span></div>
+          <div class="row mock-only"><div class="t">Alert after lying down<small><span id="fallVal" class="num">30</span> seconds</small></div>
+            <div class="stepper"><button id="fallMinus" aria-label="Fewer seconds">−</button><button id="fallPlus" aria-label="More seconds">+</button></div></div>
+          <div class="row mock-only"><div class="t">Frame interval</div>
+            <div class="seg small" role="group" aria-label="Frame interval" id="intSeg"><button data-i="0.5" aria-pressed="false">0.5 s</button><button data-i="1" aria-pressed="true">1 s</button><button data-i="2" aria-pressed="false">2 s</button></div></div>
+          <div class="row"><div class="t">Pose model</div><span class="v">ViTPose · VLM Run</span></div>
+        </div>
+        <p class="foot">About $0.001 per frame. At 1 frame a second, an hour costs about $3.60.</p>
+
+        <h3 class="sh">Climber</h3>
+        <div class="group">
+          <button class="row rowbtn danger" id="resetClimber"><div class="t">Reset climber</div></button>
+        </div>
+        <p class="foot">Clears the timer and touched holds, ready for the next climber.</p>
+
+        <h3 class="sh">Who gets alerts</h3>
+        <div class="group indent" id="whoList"></div>
+        <p class="foot">These people’s phones show “Check on the climber”. “Get staff” always pages Min and Thomas.</p>
+
+        <h3 class="sh">Emergency services</h3>
+        <div class="group">
+          <div class="row"><div class="t">Call 999 automatically</div><span class="v">Never</span>
+            <svg class="chev" width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="10" height="7" rx="2"/><path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></div>
+        </div>
+        <p class="foot">This can’t be switched on. A camera can be wrong; a person on the mat can’t. If someone is hurt, call 999 yourself.</p>
+      </div>
+    </div>
+
+    <!-- ================= ALERT TAKEOVER ================= -->
+    <div class="takeover" id="takeover" role="alertdialog" aria-modal="true" aria-labelledby="toTitle" aria-describedby="toBody" aria-hidden="true">
+      <div class="to-pane" id="toAlert">
+        <div class="to-kicker" id="toKicker">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>
+          <span id="toKickerT">Safety alert · Wall 3</span>
+        </div>
+        <h2 class="to-title" id="toTitle">Check on the climber</h2>
+        <p class="to-body" id="toBody">Sasha has been lying on the mat for 30 seconds after a fall.</p>
+        <div class="to-ring">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,59,48,.14)" stroke-width="12"/>
+            <circle id="toArc" cx="100" cy="100" r="88" fill="none" stroke="#FF3B30" stroke-width="12" stroke-linecap="round" transform="rotate(-90 100 100)" stroke-dasharray="552.9" stroke-dashoffset="0"/>
+          </svg>
+          <div class="to-ring-in"><div class="to-num num" id="toNum">60</div><div class="to-cap" id="toCap">seconds until<br>staff are paged</div></div>
+        </div>
+        <div class="to-meta" id="toMeta"></div>
+        <div class="to-actions">
+          <button class="bigbtn ok" id="btnOk">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>They’re OK</button>
+          <button class="bigbtn staff" id="btnStaff">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M18 8v6M15 11h6"/></svg>Get staff</button>
+        </div>
+        <p class="to-foot">Live Spotter never calls emergency services by itself.<br>If someone is badly hurt, call 999.</p>
+      </div>
+      <div class="to-pane" id="toStaff" hidden>
+        <div class="to-kicker" id="toStaffKicker">Safety alert · Wall 3</div>
+        <div class="okmark"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <h2 class="to-title">Staff are on the way</h2>
+        <p class="to-body" id="staffBody">Min and Thomas were paged.</p>
+        <div class="guide">
+          <div class="row"><div class="t">Stay with the climber</div></div>
+          <div class="row"><div class="t">Don’t move them if they may be hurt</div></div>
+          <div class="row"><div class="t">Keep other climbers off the mat</div></div>
+        </div>
+        <div style="flex:1"></div>
+        <button class="bigbtn blue" id="btnResolve">Mark resolved</button>
+        <p class="to-foot">If someone is badly hurt, call 999.</p>
+      </div>
+    </div>
+
+    <!-- ================= BANNER ================= -->
+    <div class="banner glass" id="banner" role="status" aria-live="polite" data-tone="green">
+      <div class="ic" id="bannerIc"></div>
+      <div><b id="bannerT"></b><span id="bannerB"></span></div>
+    </div>
+
+    <div class="homebar" aria-hidden="true"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ME = 'Kieran';
+  var STAFF = ['Min', 'Thomas'];
+
+  /* ---------------- Routes on the wall ---------------- */
+  var ROUTES = [
+    { id: 'yellow', name: 'Yellow', color: '#FFCC00', ink: '#000', n: 9,  cx: 60,  grade: 'V1', label: 'Easy',     level: 2, tone: 'green',  note: 'Big, friendly holds. A good first climb of the night.' },
+    { id: 'green',  name: 'Green',  color: '#30C35A', ink: '#000', n: 7,  cx: 180, grade: 'V0', label: 'Warm‑up',  level: 1, tone: 'green',  note: 'Short and steady. Straight up the middle of the wall.' },
+    { id: 'blue',   name: 'Blue',   color: '#0A84FF', ink: '#000', n: 11, cx: 305, grade: 'V3', label: 'Tricky',   level: 3, tone: 'orange', note: 'Longer reaches near the top. Watch the move to 9.' },
+    { id: 'pink',   name: 'Pink',   color: '#FF2D78', ink: '#000', n: 8,  cx: 122, grade: 'V2', label: 'Moderate', level: 2, tone: 'blue',   note: 'Small crimps low down, then it eases off.' },
+    { id: 'black',  name: 'Black',  color: '#2C2C2E', ink: '#FFF', n: 12, cx: 242, grade: 'V5', label: 'Hard',     level: 5, tone: 'red',    note: 'Many small holds, close together. Strong fingers.' }
+  ];
+  function rng(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+  ROUTES.forEach(function (r, ri) {
+    var rand = rng(ri * 977 + 31);
+    r.holds = [];
+    for (var i = 0; i < r.n; i++) {
+      var y = 300 - i * (256 / (r.n - 1));
+      var side = i % 2 === 0 ? -1 : 1;
+      var x = r.cx + side * (12 + rand() * 7);
+      if (i === r.n - 1) x = r.cx;
+      var jy = (i > 0 && i < r.n - 1) ? (rand() - 0.5) * 8 : 0;
+      r.holds.push({ x: Math.round(x), y: Math.round(y + jy), a: Math.round(rand() * 80 - 40) });
+    }
+  });
+  var route = ROUTES[1];
+  var pickIndex = 1;
+
+  /* ---------------- Config + app state ---------------- */
+  var cfg = { fallSecs: 30, interval: 1, who: { Kieran: true, Min: true, Thomas: true, Sagar: false } };
+  var WHO = [
+    { name: 'Kieran', role: 'Spotter · You', bg: '#1E7B34' },
+    { name: 'Min', role: 'Staff · Front desk', bg: '#7B3FB3' },
+    { name: 'Thomas', role: 'Duty manager', bg: '#0B7285' },
+    { name: 'Sagar', role: 'Team captain', bg: '#AD5700' }
+  ];
+  var climber = 'Sasha';
+  var state = 'READY';
+  var touched = [];
+  var climbStart = 0, climbElapsed = 0;
+  var downSecs = 0;
+  var runId = 0;
+  var fastForward = false;
+  var calls = 1284, latency = 0.31;
+  var clock = 19 * 3600 + 4 * 60 + 50;
+  var incident = { fall: 0, alert: 0 };
+  var responses = [7];
+  var escalateLeft = 60, escalateTimer = null;
+  var logFilter = 'all', unread = 0, currentTab = 'live';
+  var LIVE = false, api = null, routeKey = '', liveCost = 0, wallName = 'Wall 3', localLog = [], seenEvents = -1, prevState = null, trackKey = '';
+
+  var TEAM = [
+    { name: 'Francesco', bg: '#0062CC', result: 'top',  time: 42, holds: 6, tip: 'Clean footwork. A high step past hold 4 saves you a whole move.' },
+    { name: 'Min',       bg: '#7B3FB3', result: 'top',  time: 48, holds: 7, tip: 'Steady pace. You paused 6 s on hold 6 — trust the foot and go.' },
+    { name: 'Thomas',    bg: '#0B7285', result: 'top',  time: 65, holds: 7, tip: 'Topped after an earlier fall. Chalk up before 5; your left hand slipped there.' },
+    { name: 'Sagar',     bg: '#AD5700', result: 'land', time: 55, holds: 5, tip: 'Reached 5. Straighten your arms on 4 to rest before the long reach.' },
+    { name: 'Kieran',    bg: '#1E7B34', result: 'land', time: 31, holds: 3, tip: 'Keep your hips close to the wall on 3 so your feet stick.' },
+    { name: 'Sasha',     bg: '#C2185B', result: 'none', time: 0,  holds: 0, tip: 'Up next. Start with both hands on hold 1 and feet on the big foothold.' }
+  ];
+
+  var T = function (h, m, s) { return h * 3600 + m * 60 + s; };
+  var LOG = [
+    { t: T(18,30,0),  type: 'session', title: 'Session started', detail: 'Camera on Wall 3 · 1 frame a second' },
+    { t: T(18,31,12), type: 'climb',   title: 'Francesco started', detail: 'Green route' },
+    { t: T(18,31,54), type: 'top',     title: 'Francesco topped', detail: '0:42 · 6 holds' },
+    { t: T(18,35,20), type: 'top',     title: 'Min topped', detail: '0:48 · 7 holds' },
+    { t: T(18,38,2),  type: 'land',    title: 'Sagar landed', detail: 'Upright on the mat · high point 5' },
+    { t: T(18,41,49), type: 'climb',   title: 'Thomas started', detail: 'Green route' },
+    { t: T(18,42,3),  type: 'fall',    title: 'Fall detected', detail: 'Thomas is lying on the mat' },
+    { t: T(18,42,33), type: 'alert',   title: 'Alert', detail: 'Sent to Kieran, Min, Thomas · “Check on the climber”' },
+    { t: T(18,42,40), type: 'ack',     title: 'Acknowledged by Kieran', detail: '“They’re OK” · 7 s after the alert' },
+    { t: T(18,50,10), type: 'top',     title: 'Thomas topped', detail: '1:05 · 7 holds' },
+    { t: T(18,55,31), type: 'land',    title: 'Kieran landed', detail: 'Upright on the mat · high point 3' }
+  ];
+  var TYPE = {
+    session: { tone: 'gray' }, climb: { tone: 'blue' }, top: { tone: 'green' }, land: { tone: 'teal' },
+    fall: { tone: 'orange', safety: true }, alert: { tone: 'red', safety: true }, ack: { tone: 'green', safety: true },
+    staff: { tone: 'red', safety: true }, resolved: { tone: 'green', safety: true }, route: { tone: 'indigo' }
+  };
+
+  /* ---------------- Icons ---------------- */
+  var ICON = {
+    READY: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.6" r="2"/><path d="M12 8v7M12 15l-3 5.5M12 15l3 5.5M7.5 10.5h9"/></svg>',
+    CLIMBING: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="2"/><path d="M12 11v4.5M12 11.5 8 4M12 11.5 16 4M12 15.5l-3 5M12 15.5l3 4"/></svg>',
+    TOPPED: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    LANDED: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11M7 10l5 5 5-5M4.5 20h15"/></svg>',
+    DOWN: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="14" r="2"/><path d="M8 14.5h7.5M15.5 14.5l4.5-3M15.5 14.5l4.5 2.5M3 19h18"/></svg>',
+    ALERT: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>'
+  };
+  var EV_ICON = {
+    session: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg>',
+    climb: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+    top: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    land: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 4v12M6 11l6 6 6-6"/></svg>',
+    fall: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v8M12 17.5v.1"/></svg>',
+    alert: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 21 19H3z"/><path d="M12 10v4"/></svg>',
+    ack: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10" cy="8" r="3.2"/><path d="M4 19a6 6 0 0 1 10-4.5M15 17l2 2 4-4"/></svg>',
+    staff: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M18 8v6M15 11h6"/></svg>',
+    resolved: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    route: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 4"><path d="M6 20 12 12 9 4"/></svg>'
+  };
+  var BULB = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>';
+  var CHEV = '<svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"/></svg>';
+
+  /* ---------------- Helpers ---------------- */
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function hms(t) { t = ((t % 86400) + 86400) % 86400; return pad(Math.floor(t / 3600)) + ':' + pad(Math.floor(t / 60) % 60) + ':' + pad(t % 60); }
+  function hm(t) { return hms(t).slice(0, 5); }
+  function fmtMs(ms) { var s = ms / 1000; var m = Math.floor(s / 60); var r = s - m * 60; return m + ':' + (r < 10 ? '0' : '') + r.toFixed(1); }
+  function fmtS(s) { return Math.floor(s / 60) + ':' + pad(Math.round(s) % 60); }
+  function listNames(a) { return a.length <= 1 ? (a[0] || 'nobody') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+  function recipients() { return WHO.filter(function (w) { return cfg.who[w.name]; }).map(function (w) { return w.name; }); }
+  function initials(n) { return n.slice(0, 2).toUpperCase(); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function pause(ms, alive) { return new Promise(function (res) { setTimeout(function () { res(alive()); }, reduceMotion ? Math.min(ms, 250) : ms); }); }
+
+  /* ---------------- Wall drawing ---------------- */
+  function wallBase(p) {
+    var s = '<defs>' +
+      '<pattern id="' + p + 'tn" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1.1" fill="rgba(0,0,0,.2)"/></pattern>' +
+      '<linearGradient id="' + p + 'wg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ECE8DF"/><stop offset="1" stop-color="#CCC5B8"/></linearGradient>' +
+      '<linearGradient id="' + p + 'mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4B5566"/><stop offset="1" stop-color="#2B323D"/></linearGradient>' +
+      '<radialGradient id="' + p + 'vg" cx="50%" cy="45%" r="75%"><stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".32"/></radialGradient>' +
+      '</defs>' +
+      '<rect width="360" height="400" fill="url(#' + p + 'wg)"/>' +
+      '<polygon points="0,0 96,0 70,400 0,400" fill="rgba(0,0,0,.045)"/>' +
+      '<polygon points="270,0 360,0 360,400 292,400" fill="rgba(255,255,255,.18)"/>' +
+      '<rect width="360" height="400" fill="url(#' + p + 'tn)"/>' +
+      '<path d="M120 0V400M240 0V400M0 133H360M0 266H360" stroke="rgba(0,0,0,.12)" stroke-width="1"/>' +
+      '<rect y="400" width="360" height="40" fill="url(#' + p + 'mg)"/>' +
+      '<path d="M0 401H360" stroke="rgba(255,255,255,.25)" stroke-width="2"/>' +
+      '<path d="M90 402V440M180 402V440M270 402V440" stroke="rgba(0,0,0,.35)" stroke-width="1.5"/>';
+    return s;
+  }
+  function holdShape(h, color, big, extraCls) {
+    var rx = big ? 13 : 9, ry = big ? 8 : 6.5;
+    return '<g class="' + (extraCls || '') + '" transform="translate(' + h.x + ' ' + h.y + ') rotate(' + h.a + ')">' +
+      '<ellipse rx="' + rx + '" ry="' + ry + '" fill="' + color + '" stroke="rgba(0,0,0,.4)" stroke-width="1"/>' +
+      '<ellipse cx="-2" cy="-2" rx="' + (rx * 0.45) + '" ry="' + (ry * 0.35) + '" fill="rgba(255,255,255,.32)"/></g>';
+  }
+  function allHolds(except) {
+    var s = '';
+    ROUTES.forEach(function (r) {
+      if (except && r.id === except) return;
+      r.holds.forEach(function (h, i) { s += holdShape(h, r.color, i === r.n - 1); });
+    });
+    return s;
+  }
+  function badgePos(r, h) { var left = h.x < r.cx; return { x: h.x + (left ? -17 : 17), y: h.y - 9 }; }
+
+  function buildViewfinder() {
+    $('#vfWall').innerHTML = wallBase('v') + allHolds() + '<rect width="360" height="440" fill="url(#vvg)"/>';
+  }
+
+  var KEYS = ['head', 'ls', 'rs', 'le', 're', 'lw', 'rw', 'lh', 'rh', 'lk', 'rk', 'la', 'ra'];
+  var BONES = [['ls', 'rs'], ['ls', 'le'], ['le', 'lw'], ['rs', 're'], ['re', 'rw'], ['ls', 'lh'], ['rs', 'rh'], ['lh', 'rh'], ['lh', 'lk'], ['lk', 'la'], ['rh', 'rk'], ['rk', 'ra']];
+
+  function buildLiveWall() {
+    var svg = $('#wall');
+    var s = wallBase('l') + '<g id="lOthers" opacity=".55">' + allHolds(route.id) + '</g><g id="lRoute"></g>';
+    s += '<g id="skel">';
+    BONES.concat([['head', 'neck']]).forEach(function (b) { s += '<line class="bone-sh" data-a="' + b[0] + '" data-b="' + b[1] + '"/>'; });
+    BONES.concat([['head', 'neck']]).forEach(function (b) { s += '<line class="bone" data-a="' + b[0] + '" data-b="' + b[1] + '"/>'; });
+    KEYS.forEach(function (k) { if (k !== 'head') s += '<circle class="joint" r="3.3" data-k="' + k + '"/>'; });
+    s += '<circle class="headc" r="9" data-k="head"/></g>';
+    s += '<g id="ptag"><rect rx="7" width="78" height="18" fill="rgba(0,0,0,.55)"/><text id="ptagT" x="39" y="12.5" text-anchor="middle" fill="#fff" style="font:600 10px var(--font)">Sasha · 0.94</text></g>';
+    s += '<rect width="360" height="440" fill="url(#lvg)" pointer-events="none"/>';
+    svg.innerHTML = s;
+    renderLiveRoute();
+  }
+  function renderLiveRoute() {
+    if (LIVE) return;
+    $('#lOthers').innerHTML = allHolds(route.id);
+    var s = '';
+    route.holds.forEach(function (h, i) {
+      var big = i === route.n - 1, b = badgePos(route, h);
+      s += '<g class="rh" id="rh' + i + '">' +
+        '<circle class="rh-halo" cx="' + h.x + '" cy="' + h.y + '" r="' + (big ? 18 : 14) + '"/>' +
+        holdShape(h, route.color, big) +
+        '<g class="rh-badge" transform="translate(' + b.x + ' ' + b.y + ')"><circle r="8"/><text y="3.5" text-anchor="middle">' + (i + 1) + '</text></g></g>';
+    });
+    $('#lRoute').innerHTML = s;
+    touched.forEach(function (i) { var el = $('#rh' + i); if (el) el.classList.add('lit'); });
+  }
+
+  /* ---------------- Pose model (drawn) ---------------- */
+  function P(x, y) { return { x: x, y: y }; }
+  function standPose(x) {
+    return { head: P(x, 304), ls: P(x - 13, 326), rs: P(x + 13, 326), le: P(x - 19, 350), re: P(x + 19, 350), lw: P(x - 21, 372), rw: P(x + 21, 372),
+      lh: P(x - 9, 372), rh: P(x + 9, 372), lk: P(x - 10, 400), rk: P(x + 10, 400), la: P(x - 11, 428), ra: P(x + 11, 428) };
+  }
+  function climbPose(L, R) {
+    var low = Math.max(L.y, R.y), mx = (L.x + R.x) / 2, sy = low + 34, hy = sy + 48;
+    var p = { head: P(mx, sy - 20), ls: P(mx - 13, sy), rs: P(mx + 13, sy), lw: P(L.x, L.y), rw: P(R.x, R.y),
+      lh: P(mx - 9, hy), rh: P(mx + 9, hy), lk: P(mx - 22, hy + 30), rk: P(mx + 21, hy + 28), la: P(mx - 15, hy + 60), ra: P(mx + 16, hy + 56) };
+    p.le = P((p.ls.x + L.x) / 2 - 11, (p.ls.y + L.y) / 2 + 4);
+    p.re = P((p.rs.x + R.x) / 2 + 11, (p.rs.y + R.y) / 2 + 4);
+    ['la', 'ra'].forEach(function (k) {
+      if (p[k].y > 428) {
+        var d = p[k].y - 428, kn = k === 'la' ? 'lk' : 'rk', hip = k === 'la' ? p.lh : p.rh, sgn = k === 'la' ? -1 : 1;
+        p[k].y = 428; p[kn] = P(hip.x + sgn * (22 + d * 0.5), (hip.y + 428) / 2 - d * 0.2);
+      }
+    });
+    return p;
+  }
+  function lyingPose(cx) {
+    var dx = Math.max(-100, Math.min(100, cx - 175));
+    var b = { head: P(112, 414), ls: P(130, 408), rs: P(131, 421), le: P(148, 402), re: P(150, 428), lw: P(166, 400), rw: P(170, 432),
+      lh: P(178, 410), rh: P(178, 419), lk: P(206, 406), rk: P(208, 424), la: P(236, 408), ra: P(238, 426) };
+    KEYS.forEach(function (k) { b[k] = P(b[k].x + dx, b[k].y); });
+    return b;
+  }
+  function transformPose(p, deg, tx, ty) {
+    var piv = P((p.lh.x + p.rh.x) / 2, (p.lh.y + p.rh.y) / 2), a = deg * Math.PI / 180, o = {};
+    KEYS.forEach(function (k) {
+      var x = p[k].x - piv.x, y = p[k].y - piv.y;
+      o[k] = P(piv.x + x * Math.cos(a) - y * Math.sin(a) + tx, piv.y + x * Math.sin(a) + y * Math.cos(a) + ty);
+    });
+    return o;
+  }
+  function clonePose(p) { var o = {}; KEYS.forEach(function (k) { o[k] = P(p[k].x, p[k].y); }); return o; }
+  function startX() { return Math.max(40, Math.min(320, route.holds[0].x + (route.cx > 250 ? 34 : -34))); }
+  var cur = standPose(150);
+  var animSeq = 0;
+  function drawPose() {
+    var neck = P((cur.ls.x + cur.rs.x) / 2, (cur.ls.y + cur.rs.y) / 2);
+    var get = function (k) { return k === 'neck' ? neck : cur[k]; };
+    $$('#skel line').forEach(function (l) {
+      var a = get(l.getAttribute('data-a')), b = get(l.getAttribute('data-b'));
+      l.setAttribute('x1', a.x.toFixed(1)); l.setAttribute('y1', a.y.toFixed(1)); l.setAttribute('x2', b.x.toFixed(1)); l.setAttribute('y2', b.y.toFixed(1));
+    });
+    $$('#skel circle').forEach(function (c) { var p = cur[c.getAttribute('data-k')]; c.setAttribute('cx', p.x.toFixed(1)); c.setAttribute('cy', p.y.toFixed(1)); });
+    var tx = Math.max(4, Math.min(278, cur.head.x - 39)), ty = Math.max(4, Math.min(cur.head.y - 36, 380));
+    $('#ptag').setAttribute('transform', 'translate(' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ')');
+  }
+  function animatePose(to, ms) {
+    var my = ++animSeq, from = clonePose(cur);
+    if (reduceMotion) ms = 60;
+    return new Promise(function (res) {
+      var t0 = performance.now();
+      function step(now) {
+        if (my !== animSeq) { res(); return; }
+        var k = Math.min(1, (now - t0) / ms), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        KEYS.forEach(function (key) { cur[key] = P(from[key].x + (to[key].x - from[key].x) * e, from[key].y + (to[key].y - from[key].y) * e); });
+        drawPose();
+        if (k < 1) requestAnimationFrame(step); else res();
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  /* ---------------- State rendering ---------------- */
+  var TONES = { READY: 'gray', CLIMBING: 'blue', TOPPED: 'green', LANDED: 'teal', DOWN: 'orange', ALERT: 'red' };
+  var NAMES = { READY: 'Ready', CLIMBING: 'Climbing', TOPPED: 'Topped', LANDED: 'Landed', DOWN: 'Down', ALERT: 'Alert' };
+  function highPoint() {
+    if (!touched.length) return 0;
+    var m = Math.max.apply(null, touched);
+    return LIVE && route.holdIds ? route.holdIds[m] : m + 1;
+  }
+  function liveSubtitle() {
+    switch (state) {
+      case 'READY': return 'Waiting for a climber. The timer starts on the first move.';
+      case 'CLIMBING': return 'On the ' + route.name + ' route. ' + touched.length + ' of ' + route.n + ' holds so far.';
+      case 'TOPPED': return 'Both hands on the top hold. Topped in ' + fmtMs(climbElapsed) + '.';
+      case 'LANDED': return 'Standing on the mat. High point: hold ' + highPoint() + '.';
+      case 'DOWN': return 'Lying on the mat after a fall. Alert in ' + Math.max(0, cfg.fallSecs - downSecs) + ' s if they don’t get up.';
+      case 'ALERT': return 'Reception has been asked to send staff to ' + wallName + '.';
+    }
+    return '';
+  }
+  function subtitle() {
+    if (LIVE) return liveSubtitle();
+    switch (state) {
+      case 'READY': return climber + ' is at the wall. The timer starts on the first move.';
+      case 'CLIMBING': return climber + ' is on the ' + route.name + ' route. ' + touched.length + ' of ' + route.n + ' holds so far.';
+      case 'TOPPED': return 'Both hands on the top hold. ' + climber + ' topped in ' + fmtMs(climbElapsed) + '.';
+      case 'LANDED': return climber + ' is standing on the mat. High point: hold ' + highPoint() + '.';
+      case 'DOWN': return climber + ' is lying on the mat after a fall. Alert in ' + Math.max(0, cfg.fallSecs - downSecs) + ' s if they don’t get up.';
+      case 'ALERT': return 'Spotters have been asked to check on ' + climber + '. Waiting for a person to respond.';
+    }
+    return '';
+  }
+  function ringSVG(size, frac, color, track, inner) {
+    var r = size / 2 - 5, c = 2 * Math.PI * r;
+    return '<div style="position:relative;width:' + size + 'px;height:' + size + 'px"><svg width="' + size + '" height="' + size + '" aria-hidden="true">' +
+      '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="' + track + '" stroke-width="6"/>' +
+      '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round" transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + (c * (1 - frac)).toFixed(1) + '" style="transition:stroke-dashoffset .2s linear"/></svg>' +
+      '<div style="position:absolute;inset:0;display:grid;place-items:center;font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;color:' + color + '">' + inner + '</div></div>';
+  }
+  function renderHeroRight() {
+    var el = $('#heroRight');
+    if (state === 'DOWN') {
+      el.innerHTML = ringSVG(64, downSecs / cfg.fallSecs, 'var(--orangeT)', 'rgba(255,149,0,.18)', downSecs + '<span style="font-size:12px;font-weight:600">s</span>');
+      el.setAttribute('aria-label', 'Down for ' + downSecs + ' seconds of ' + cfg.fallSecs);
+    } else if (state === 'ALERT') {
+      el.innerHTML = ringSVG(64, 1, 'var(--redT)', 'rgba(255,59,48,.15)', '!');
+    } else if (state === 'READY') {
+      el.innerHTML = '<div class="timer" style="color:var(--label3)">0:00.0</div><div class="timer-cap">Timer</div>';
+    } else {
+      var ms = state === 'CLIMBING' ? performance.now() - climbStart : climbElapsed;
+      el.innerHTML = '<div class="timer" id="timerVal">' + fmtMs(ms) + '</div><div class="timer-cap">Timer</div>';
+    }
+  }
+  function renderHoldTrack(pop) {
+    var s = '';
+    for (var i = 0; i < route.n; i++) s += '<div class="hdot' + (touched.indexOf(i) > -1 ? ' on' : '') + (pop === i ? ' pop' : '') + '">' + (LIVE && route.holdIds ? route.holdIds[i] : i + 1) + '</div>';
+    var ht = $('#holdtrack');
+    ht.innerHTML = s;
+    ht.setAttribute('aria-label', touched.length + ' of ' + route.n + ' holds touched');
+    if (pop != null) setTimeout(function () { var d = ht.children[pop]; if (d) d.classList.remove('pop'); }, 260);
+  }
+  function renderActions() {
+    var el = $('#heroActions');
+    if (state === 'DOWN' && !LIVE) el.innerHTML = '<button class="btn gray" id="earlyOk">They’re OK</button><button class="btn red" id="earlyAlert">Alert now</button>';
+    else if (state === 'ALERT') el.innerHTML = '<button class="btn red" id="openAlert">Open alert</button>';
+    else el.innerHTML = '';
+    var a = $('#earlyOk'); if (a) a.onclick = function () { acknowledge(true); };
+    var b = $('#earlyAlert'); if (b) b.onclick = function () { runId++; fastForward = false; triggerAlert(); };
+    var c = $('#openAlert'); if (c) c.onclick = openTakeover;
+  }
+  function renderState() {
+    var tone = TONES[state];
+    $('#hero').setAttribute('data-tone', tone);
+    $('#cam').setAttribute('data-tone', tone);
+    $('#sicon').innerHTML = ICON[state];
+    $('#sname').textContent = NAMES[state];
+    $('#slabel').textContent = (LIVE ? wallName : climber) + ' · ' + route.name + ' route';
+    $('#ssub').textContent = subtitle();
+    renderHeroRight();
+    renderActions();
+  }
+  function setState(s) { state = s; renderState(); }
+
+  function applyRoute() {
+    var root = document.documentElement.style;
+    root.setProperty('--route', route.color);
+    root.setProperty('--routeInk', route.ink);
+    $('#routeChipText').innerHTML = esc(route.name) + ' route <span>· ' + route.n + ' holds · ' + (LIVE ? 'from camera' : route.grade) + '</span>';
+    $('#colourNote').textContent = 'Only ' + route.name.toLowerCase() + ' holds count · ' + route.n + ' holds.';
+    renderLiveRoute();
+    renderHoldTrack();
+    renderState();
+    renderSwatches();
+    renderBoard();
+  }
+
+  function renderClock() { $('#sbTime').textContent = hm(clock); }
+  function renderMetrics() {
+    $('#tLat').textContent = latency.toFixed(2) + ' s';
+    var cost = LIVE ? liveCost : calls * 0.001;
+    $('#tCost').textContent = '$' + cost.toFixed(cost < 1 ? 3 : 2);
+    $('#tCalls').textContent = calls.toLocaleString('en-GB') + ' calls';
+    if (LIVE) { $('#tInt').textContent = 'from camera'; $('#camStatus').textContent = 'ViTPose · ' + latency.toFixed(2) + ' s · $0.001'; return; }
+    $('#tInt').textContent = (cfg.interval === 1 ? '1 frame' : cfg.interval === 0.5 ? '2 frames' : '1 frame / 2') + (cfg.interval === 2 ? ' s' : ' / s');
+    $('#camStatus').textContent = 'ViTPose · ' + latency.toFixed(2) + ' s · $0.001';
+  }
+
+  /* ---------------- Log / timeline ---------------- */
+  function addLog(type, title, detail) {
+    if (LIVE) { localLog.push({ t: nowSec(), type: type, title: title, detail: detail }); rebuildLiveLog(); return; }
+    LOG.push({ t: clock, type: type, title: title, detail: detail });
+    if (TYPE[type].safety && currentTab !== 'log') { unread++; }
+    renderLog(); renderRecent(); renderBadge();
+  }
+  function renderBadge() { var b = $('#logBadge'); b.hidden = unread === 0; b.textContent = unread; }
+  function renderLog() {
+    var items = LOG.filter(function (e) { return logFilter === 'all' || TYPE[e.type].safety; });
+    if (LIVE) items = items.slice().reverse();
+    $('#timeline').innerHTML = items.length ? items.map(function (e) {
+      var ty = TYPE[e.type];
+      return '<div class="tl-item' + (ty.safety ? ' safety' : '') + '" data-tone="' + ty.tone + '">' +
+        '<div class="tl-time">' + hms(e.t) + '</div><div class="tl-rail"><span class="tl-dot"></span></div>' +
+        '<div class="tl-body"><div class="tl-title">' + esc(e.title) + '</div><div class="tl-detail">' + esc(e.detail) + '</div></div></div>';
+    }).join('') : '<div class="tl-empty">Nothing yet.</div>';
+    var alerts = LOG.filter(function (e) { return e.type === 'alert'; }).length;
+    $('#sumAlerts').textContent = alerts;
+    if (LIVE) responses = liveResponses();
+    if (LIVE && !responses.length) { $('#sumResp').textContent = '—'; return; }
+    var avg = responses.reduce(function (a, b) { return a + b; }, 0) / Math.max(1, responses.length);
+    $('#sumResp').textContent = Math.round(avg) + ' s';
+  }
+  function renderRecent() {
+    var last = LOG.slice(-3).reverse();
+    $('#recent').innerHTML = last.map(function (e) {
+      var ty = TYPE[e.type];
+      return '<div class="row evrow" data-tone="' + ty.tone + '"><span class="ic">' + EV_ICON[e.type] + '</span><div class="t">' + esc(e.title) + '<small>' + esc(e.detail) + '</small></div><span class="tm">' + hm(e.t) + '</span></div>';
+    }).join('') + '<button class="row rowbtn" id="seeAll"><div class="t" style="color:var(--blueT)">See full timeline</div>' + CHEV + '</button>';
+    $('#seeAll').onclick = function () { showTab('log'); };
+  }
+
+  /* ---------------- Leaderboard ---------------- */
+  function rankOf(p) { return p.result === 'top' ? 0 : (p.result === 'land' || p.result === 'fall') ? 1 : 2; }
+  function renderBoard() {
+    var list = TEAM.slice().sort(function (a, b) {
+      var ra = rankOf(a), rb = rankOf(b);
+      if (ra !== rb) return ra - rb;
+      if (ra === 0) return (a.time - b.time) || (a.holds - b.holds);
+      return (b.holds - a.holds) || (a.time - b.time);
+    });
+    var topped = TEAM.filter(function (p) { return p.result === 'top'; }).length;
+    $('#lbSub').textContent = route.name + ' route · ' + topped + ' of ' + TEAM.length + ' topped';
+    $('#board').innerHTML = list.map(function (p, i) {
+      var pill, tone, d, time;
+      if (p.result === 'top') { tone = 'green'; pill = 'Topped'; d = p.holds + ' holds used'; }
+      else if (p.result === 'land') { tone = 'teal'; pill = 'Landed'; d = 'High point ' + p.holds; }
+      else if (p.result === 'fall') { tone = 'orange'; pill = 'Fell'; d = 'High point ' + p.holds; }
+      else { tone = 'gray'; pill = 'Up next'; d = 'Not climbed yet'; }
+      time = p.result === 'none' ? '<div class="lb-time muted">—</div>' : '<div class="lb-time">' + fmtS(p.time) + '</div>';
+      var rk = p.result === 'none' ? '' : (i + 1);
+      return '<div class="lb-row"><div class="lb-main"><div class="rank r' + rk + '">' + rk + '</div>' +
+        '<div class="avatar" style="background:' + p.bg + '">' + initials(p.name) + '</div>' +
+        '<div class="lb-name"><div class="n">' + p.name + '</div><div class="d"><span class="pill" data-tone="' + tone + '">' + pill + '</span>' + d + '</div></div>' + time + '</div>' +
+        '<div class="tip">' + BULB + '<span><b>Coach tip</b> · ' + esc(p.tip) + '</span></div></div>';
+    }).join('');
+  }
+  function setSasha(result, time, holds, tip) {
+    var s = TEAM.filter(function (p) { return p.name === 'Sasha'; })[0];
+    s.result = result; s.time = time; s.holds = holds; s.tip = tip; renderBoard();
+  }
+
+  /* ---------------- Spotters + settings ---------------- */
+  function renderRouting() {
+    $('#routing').innerHTML = WHO.map(function (w) {
+      var on = cfg.who[w.name];
+      return '<div class="row"><div class="t">' + w.name + (w.name === ME ? ' (you)' : '') + '<small>' + w.role + '</small></div><span class="v' + (on ? ' blue' : '') + '">' + (on ? 'Alerts on' : 'Off') + '</span></div>';
+    }).join('') + '<button class="row rowbtn" id="editRouting"><div class="t" style="color:var(--blueT)">Change in Settings</div>' + CHEV + '</button>';
+    $('#editRouting').onclick = openSheet;
+    $('#whoList').innerHTML = WHO.map(function (w) {
+      return '<div class="row"><div class="avatar" style="background:' + w.bg + ';width:34px;height:34px;font-size:13px">' + initials(w.name) + '</div><div class="t">' + w.name + (w.name === ME ? ' (you)' : '') + '<small>' + w.role + '</small></div>' +
+        '<button class="switch" role="switch" aria-checked="' + !!cfg.who[w.name] + '" data-who="' + w.name + '" aria-label="Alerts for ' + w.name + '"></button></div>';
+    }).join('');
+    $$('#whoList .switch').forEach(function (b) {
+      b.onclick = function () {
+        var n = b.getAttribute('data-who');
+        cfg.who[n] = !cfg.who[n];
+        if (!recipients().length) { cfg.who[n] = true; toast('orange', 'Someone must get alerts', 'At least one person has to be on the list.'); }
+        renderRouting();
+      };
+    });
+  }
+  function renderSwatches() {
+    $('#swatches').innerHTML = ROUTES.map(function (r) {
+      return '<button class="swatch" role="radio" aria-checked="' + (r.id === route.id) + '" aria-label="' + r.name + '" data-r="' + r.id + '" style="background:' + r.color + ';--c:' + r.color + '">' +
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="' + r.ink + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>';
+    }).join('');
+    $$('#swatches .swatch').forEach(function (b) {
+      b.onclick = function () {
+        var r = ROUTES.filter(function (x) { return x.id === b.getAttribute('data-r'); })[0];
+        chooseRoute(r, true);
+      };
+    });
+  }
+  function renderFall() {
+    $('#fallVal').textContent = cfg.fallSecs;
+    $('#howSecs').textContent = cfg.fallSecs;
+    $('#fallMinus').disabled = cfg.fallSecs <= 10;
+    $('#fallPlus').disabled = cfg.fallSecs >= 60;
+  }
+
+  /* ---------------- Tabs, scroll, sheet, menu, banner ---------------- */
+  function showTab(id) {
+    currentTab = id;
+    $$('.tab').forEach(function (t) { t.setAttribute('aria-selected', String(t.getAttribute('data-tab') === id)); });
+    $$('.screen').forEach(function (s) { s.classList.toggle('active', s.id === 's-' + id); });
+    if (id === 'log') { unread = 0; renderBadge(); }
+    closeMenu();
+  }
+  $$('.tab').forEach(function (t) { t.onclick = function () { showTab(t.getAttribute('data-tab')); }; });
+  $$('.screen').forEach(function (s) {
+    var sc = $('.scroll', s), nb = $('.navbar', s);
+    sc.addEventListener('scroll', function () { nb.classList.toggle('scrolled', sc.scrollTop > 36); }, { passive: true });
+  });
+  function openSheet() { closeMenu(); $('#sheet').classList.add('show'); $('#sheet').setAttribute('aria-hidden', 'false'); $('#scrim').classList.add('show'); setTimeout(function () { $('#sheetDone').focus(); }, 350); }
+  function closeSheet() { $('#sheet').classList.remove('show'); $('#sheet').setAttribute('aria-hidden', 'true'); $('#scrim').classList.remove('show'); }
+  $('#openSettings').onclick = openSheet;
+  $('#sheetDone').onclick = closeSheet;
+  $('#scrim').onclick = closeSheet;
+  $('#fallMinus').onclick = function () { cfg.fallSecs = Math.max(10, cfg.fallSecs - 5); renderFall(); renderState(); };
+  $('#fallPlus').onclick = function () { cfg.fallSecs = Math.min(60, cfg.fallSecs + 5); renderFall(); renderState(); };
+  $$('#intSeg button').forEach(function (b) {
+    b.onclick = function () {
+      cfg.interval = parseFloat(b.getAttribute('data-i'));
+      $$('#intSeg button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      startFrames(); renderMetrics();
+    };
+  });
+  $('#dutySwitch').onclick = function () {
+    var on = this.getAttribute('aria-checked') !== 'true';
+    this.setAttribute('aria-checked', String(on));
+    cfg.who.Kieran = on;
+    if (!recipients().length) cfg.who.Min = true;
+    $('#dutyText').textContent = on ? 'On duty · Spotter for Wall 3' : 'Off duty · no alerts to this phone';
+    renderRouting();
+  };
+  $$('.seg[aria-label=Filter] button').forEach(function (b) {
+    b.onclick = function () {
+      logFilter = b.getAttribute('data-f');
+      $$('.seg[aria-label=Filter] button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      renderLog();
+    };
+  });
+
+  function openMenu() { $('#simMenu').classList.add('show'); $('#simBtn').setAttribute('aria-expanded', 'true'); }
+  function closeMenu() { $('#simMenu').classList.remove('show'); $('#simBtn').setAttribute('aria-expanded', 'false'); }
+  $('#simBtn').onclick = function (e) { e.stopPropagation(); if ($('#simMenu').classList.contains('show')) closeMenu(); else openMenu(); };
+  document.addEventListener('click', function (e) { if (!e.target.closest('#simMenu') && !e.target.closest('#simBtn')) closeMenu(); });
+  $$('#simMenu button').forEach(function (b) {
+    b.onclick = function () {
+      closeMenu();
+      var k = b.getAttribute('data-sim');
+      if (k === 'reset') resetAll(); else if (k === 'pick') { runId++; openPick(true); } else run(k);
+    };
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeMenu(); closeSheet(); } });
+
+  var bannerTimer = null;
+  function toast(tone, title, body) {
+    var b = $('#banner');
+    b.setAttribute('data-tone', tone);
+    $('#bannerIc').innerHTML = tone === 'green' ? EV_ICON.top : tone === 'red' ? EV_ICON.staff : EV_ICON.fall;
+    $('#bannerT').textContent = title; $('#bannerB').textContent = body;
+    b.classList.add('show');
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(function () { b.classList.remove('show'); }, 3200);
+  }
+
+  /* ---------------- Alert takeover ---------------- */
+  var ARC = 2 * Math.PI * 88;
+  function renderEscalation() {
+    $('#toNum').textContent = escalateLeft;
+    $('#toArc').setAttribute('stroke-dashoffset', (ARC * (1 - escalateLeft / 60)).toFixed(1));
+  }
+  function openTakeover() {
+    closeSheet(); closeMenu();
+    $('#toAlert').hidden = false; $('#toStaff').hidden = true;
+    if (LIVE) { fillLiveTakeover(); var tk = $('#takeover'); tk.classList.add('show'); tk.setAttribute('aria-hidden', 'false'); setTimeout(function () { $('#btnOk').focus(); }, 450); return; }
+    $('#toBody').textContent = climber + ' has been lying on the mat for ' + cfg.fallSecs + ' seconds after a fall.';
+    $('#toMeta').textContent = 'Fall ' + hms(incident.fall) + ' · Alert ' + hms(incident.alert) + ' · Sent to ' + listNames(recipients());
+    var t = $('#takeover'); t.classList.add('show'); t.setAttribute('aria-hidden', 'false');
+    renderEscalation();
+    setTimeout(function () { $('#btnOk').focus(); }, 450);
+  }
+  function closeTakeover() {
+    var t = $('#takeover'); t.classList.remove('show'); t.setAttribute('aria-hidden', 'true');
+    clearInterval(escalateTimer); escalateTimer = null;
+  }
+  function triggerAlert() {
+    if (state === 'ALERT') return;
+    incident.alert = clock;
+    setState('ALERT');
+    addLog('alert', 'Alert', 'Sent to ' + listNames(recipients()) + ' · “Check on the climber”');
+    escalateLeft = 60;
+    clearInterval(escalateTimer);
+    escalateTimer = setInterval(function () {
+      escalateLeft--;
+      renderEscalation();
+      if (escalateLeft <= 0) getStaff(true);
+    }, 1000);
+    openTakeover();
+  }
+  function standUp() { animatePose(standPose(Math.max(40, Math.min(320, (cur.lh.x + cur.rh.x) / 2))), 900); }
+  function acknowledge(early) {
+    runId++; fastForward = false;
+    var dt = clock - (early ? incident.fall : incident.alert);
+    if (!early) responses.push(dt);
+    addLog('ack', 'Acknowledged by ' + ME, '“They’re OK” · ' + dt + ' s after the ' + (early ? 'fall' : 'alert'));
+    closeTakeover();
+    setState('READY');
+    standUp();
+    toast('green', 'Marked OK by ' + ME, climber + ' is fine. Logged at ' + hms(clock) + '.');
+  }
+  function getStaff(auto) {
+    clearInterval(escalateTimer); escalateTimer = null;
+    responses.push(clock - incident.alert);
+    addLog('staff', auto ? 'Staff paged automatically' : 'Staff requested by ' + ME, (auto ? 'No response in 60 s · ' : '') + listNames(STAFF) + ' paged');
+    $('#staffBody').textContent = listNames(STAFF) + ' were paged at ' + hms(clock) + '. Stay with ' + climber + '.';
+    $('#toAlert').hidden = true; $('#toStaff').hidden = false;
+    setTimeout(function () { $('#btnResolve').focus(); }, 50);
+  }
+  $('#btnOk').onclick = function () { if (LIVE) liveAck(false); else acknowledge(false); };
+  $('#btnStaff').onclick = function () { if (LIVE) liveAck(true); else getStaff(false); };
+  $('#btnResolve').onclick = function () {
+    if (LIVE) {
+      addLog('resolved', 'Resolved at reception', 'Staff with the climber · closed');
+      closeTakeover(); toast('green', 'Incident closed', 'Saved to the timeline.');
+      if (state === 'ALERT') openTakeover();
+      return;
+    }
+    addLog('resolved', 'Resolved by ' + ME, 'Staff with ' + climber + ' · closed');
+    closeTakeover(); setState('READY'); standUp();
+    toast('green', 'Incident closed', 'Saved to the timeline.');
+  };
+
+  /* ---------------- Pick your route ---------------- */
+  var cards = [];
+  function buildPick() {
+    $('#pickWall').innerHTML = wallBase('p') + '<g>' + allHolds() + '</g><rect width="360" height="440" fill="rgba(24,24,28,.42)"/><g id="pickSel"></g>';
+    $('#pkFound').textContent = ROUTES.length + ' routes found on Wall 3';
+    var car = $('#carousel');
+    car.innerHTML = ROUTES.map(function (r, i) {
+      var bars = ''; for (var b = 1; b <= 5; b++) bars += '<i class="' + (b <= r.level ? 'on' : '') + '"></i>';
+      return '<article class="rcard" data-i="' + i + '" style="--c:' + r.color + '" aria-roledescription="slide" aria-label="' + r.name + ' route, ' + r.n + ' holds, estimated ' + r.grade + ' ' + r.label + '">' +
+        '<div class="rc-top"><span class="rc-chip"></span><div><div class="rc-name">' + r.name + '</div><div class="rc-meta">' + r.n + ' holds</div></div>' +
+        '<div class="rc-grade" data-tone="' + r.tone + '"><span class="pill">' + r.grade + ' · ' + r.label + '</span><small>Estimated</small></div></div>' +
+        '<div class="rc-bars" data-tone="' + r.tone + '">' + bars + '</div><p class="rc-note">' + r.note + '</p></article>';
+    }).join('');
+    cards = $$('.rcard', car);
+    cards.forEach(function (c, i) { c.onclick = function () { scrollToCard(i, true); }; });
+    $('#dots').innerHTML = ROUTES.map(function (r, i) {
+      return '<button style="--c:' + r.color + '" aria-label="' + r.name + '" data-i="' + i + '"><i></i></button>';
+    }).join('');
+    $$('#dots button').forEach(function (b) { b.onclick = function () { scrollToCard(+b.getAttribute('data-i'), true); }; });
+    var raf = 0;
+    car.addEventListener('scroll', function () {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(function () { var i = nearestCard(); if (i !== pickIndex) { pickIndex = i; renderPickSel(); } });
+    }, { passive: true });
+    car.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { scrollToCard(Math.min(ROUTES.length - 1, pickIndex + 1), true); e.preventDefault(); }
+      if (e.key === 'ArrowLeft') { scrollToCard(Math.max(0, pickIndex - 1), true); e.preventDefault(); }
+    });
+  }
+  function nearestCard() {
+    var car = $('#carousel'), mid = car.scrollLeft + car.clientWidth / 2, best = 0, bd = 1e9;
+    cards.forEach(function (el, i) { var d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+  function scrollToCard(i, smooth) {
+    var car = $('#carousel'), el = cards[i];
+    if (!el) return;
+    car.scrollTo({ left: el.offsetLeft - (car.clientWidth - el.offsetWidth) / 2, behavior: smooth && !reduceMotion ? 'smooth' : 'auto' });
+    if (!smooth) { pickIndex = i; renderPickSel(); }
+  }
+  function renderPickSel() {
+    var r = ROUTES[pickIndex];
+    var pts = r.holds.map(function (h) { return h.x + ',' + h.y; }).join(' ');
+    var s = '<polyline points="' + pts + '" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 9" class="flow"/>' +
+            '<polyline points="' + pts + '" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 9" class="flow"/>';
+    r.holds.forEach(function (h, i) {
+      var big = i === r.n - 1, b = badgePos(r, h);
+      s += '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + (big ? 18 : 14) + '" fill="none" stroke="#fff" stroke-width="2.5"/>';
+      s += holdShape(h, r.color, big);
+      s += '<g transform="translate(' + b.x + ' ' + b.y + ')"><circle r="8.5" fill="#fff" stroke="rgba(0,0,0,.35)"/><text y="3.6" text-anchor="middle" style="font:700 10.5px var(--font)" fill="#000">' + (i + 1) + '</text></g>';
+    });
+    var s0 = r.holds[0], top = r.holds[r.n - 1];
+    s += '<g transform="translate(' + (s0.x - 20) + ' ' + (s0.y + 16) + ')"><rect width="40" height="16" rx="8" fill="#fff"/><text x="20" y="11.5" text-anchor="middle" style="font:700 9px var(--font)" fill="#000">START</text></g>';
+    s += '<g transform="translate(' + (top.x - 16) + ' ' + (top.y - 34) + ')"><rect width="32" height="16" rx="8" fill="#fff"/><text x="16" y="11.5" text-anchor="middle" style="font:700 9px var(--font)" fill="#000">TOP</text></g>';
+    $('#pickSel').innerHTML = s;
+    var chip = $('#photoChip'); chip.style.setProperty('--c', r.color);
+    $('span', chip).textContent = r.name + ' · ' + r.n + ' holds';
+    cards.forEach(function (c, i) { c.classList.toggle('cur', i === pickIndex); });
+    $$('#dots button').forEach(function (b, i) { b.setAttribute('aria-current', String(i === pickIndex)); });
+    var btn = $('#climbBtn'); btn.style.setProperty('--c', r.color);
+    btn.setAttribute('aria-label', 'Climb the ' + r.name + ' route');
+  }
+  function setPickPhase(phase) {
+    var shoot = phase === 'shoot';
+    $('#pkShoot').classList.toggle('off', !shoot); $('#pkShoot').setAttribute('aria-hidden', String(!shoot));
+    $('#pkChoose').classList.toggle('off', shoot); $('#pkChoose').setAttribute('aria-hidden', String(shoot));
+    if (!shoot) requestAnimationFrame(function () { scrollToCard(pickIndex, false); });
+  }
+  function openPick(skipPhoto) {
+    closeSheet(); closeMenu(); closeTakeover();
+    pickIndex = ROUTES.indexOf(route);
+    $('#pick').classList.remove('hide');
+    setPickPhase(skipPhoto ? 'choose' : 'shoot');
+  }
+  function closePick() { $('#pick').classList.add('hide'); }
+  function takePhoto() {
+    var f = $('#vfFlash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+    setTimeout(function () { setPickPhase('choose'); }, reduceMotion ? 0 : 380);
+  }
+  function chooseRoute(r, fromSettings, keepRun) {
+    if (r !== route) {
+      if (!keepRun) { runId++; fastForward = false; }
+      route = r; touched = []; climbElapsed = 0;
+      if (state !== 'ALERT') setState('READY');
+      applyRoute();
+      animatePose(standPose(startX()), 500);
+      addLog('route', 'Route set: ' + r.name, r.n + ' holds · estimated ' + r.grade + ' ' + r.label + (fromSettings ? ' · from Settings' : ''));
+    }
+  }
+  $('#shutter').onclick = takePhoto;
+  $('#pkRetake').onclick = function () { setPickPhase('shoot'); };
+  $('#pkClose').onclick = closePick;
+  $('#climbBtn').onclick = function () { chooseRoute(ROUTES[pickIndex], false); closePick(); showTab('live'); };
+  $('#routeChip').onclick = function () { if (!LIVE) openPick(true); };
+  $('#resetClimber').onclick = function () {
+    closeSheet();
+    if (!LIVE) { resetAll(); toast('green', 'Climber reset', 'Ready for the next climber.'); return; }
+    post('api/reset').then(function () { toast('green', 'Climber reset', 'Ready for the next climber.'); poll(true); })
+      .catch(function () { toast('red', 'Couldn’t reset', 'The camera phone didn’t answer. Try again.'); });
+  };
+
+  /* ---------------- Frames + clock ---------------- */
+  var frameTimer = null;
+  function frame() {
+    calls++; latency = 0.27 + Math.random() * 0.07;
+    renderMetrics();
+    var f = $('#fpulse'); f.classList.add('on'); setTimeout(function () { f.classList.remove('on'); }, 180);
+  }
+  function startFrames() { clearInterval(frameTimer); frameTimer = setInterval(frame, cfg.interval * 1000); }
+  setInterval(function () { if (!fastForward) { clock++; renderClock(); } }, 1000);
+  (function tick() {
+    if (state === 'CLIMBING') { var tv = $('#timerVal'); if (tv) tv.textContent = fmtMs(performance.now() - climbStart); }
+    requestAnimationFrame(tick);
+  })();
+
+  /* ---------------- Climb helpers ---------------- */
+  function touch(i) {
+    if (touched.indexOf(i) === -1) touched.push(i);
+    var el = $('#rh' + i);
+    if (el) { el.classList.add('lit'); el.classList.remove('just'); void el.getBoundingClientRect(); el.classList.add('just'); }
+    renderHoldTrack(i);
+    $('#ssub').textContent = subtitle();
+  }
+  function handsFor(i) {
+    var a = route.holds[i], b = route.holds[Math.max(0, i - 1)];
+    if (i === 0) return [P(a.x - 6, a.y), P(a.x + 6, a.y)];
+    return a.x <= b.x ? [P(a.x, a.y), P(b.x, b.y)] : [P(b.x, b.y), P(a.x, a.y)];
+  }
+  function resetClimb() {
+    touched = []; climbElapsed = 0; downSecs = 0;
+    $$('.rh').forEach(function (el) { el.classList.remove('lit', 'just'); });
+    renderHoldTrack();
+  }
+  function resetAll() {
+    runId++; fastForward = false; closeTakeover(); closePick();
+    resetClimb(); setState('READY'); animatePose(standPose(startX()), 500);
+  }
+
+  /* ---------------- Simulation ---------------- */
+  var SIM_ROUTE = { fall: 'pink', top: 'green', land: 'blue' };
+  async function simPick(target, alive) {
+    showTab('live');
+    closeTakeover();
+    pickIndex = ROUTES.indexOf(route);
+    $('#pick').classList.remove('hide');
+    setPickPhase('shoot');
+    if (!await pause(1200, alive)) return false;
+    $('#shutter').classList.add('pressed');
+    if (!await pause(160, alive)) return false;
+    $('#shutter').classList.remove('pressed');
+    takePhoto();
+    if (!await pause(900, alive)) return false;
+    for (var i = 0; i < ROUTES.length; i++) {
+      scrollToCard(i, true);
+      if (!await pause(750, alive)) return false;
+    }
+    var ti = ROUTES.map(function (r) { return r.id; }).indexOf(target);
+    scrollToCard(ti, true);
+    if (!await pause(1000, alive)) return false;
+    pickIndex = ti; renderPickSel();
+    var btn = $('#climbBtn'); btn.classList.add('pressed');
+    if (!await pause(180, alive)) return false;
+    btn.classList.remove('pressed');
+    chooseRoute(ROUTES[ti], false, true); closePick();
+    return pause(500, alive);
+  }
+  async function run(kind) {
+    var id = ++runId, alive = function () { return id === runId; };
+    fastForward = false; closeTakeover(); closeSheet();
+    if (!await simPick(SIM_ROUTE[kind], alive)) return;
+    resetClimb(); setState('READY');
+    await animatePose(standPose(startX()), 500);
+    if (!await pause(1300, alive)) return;
+
+    climbStart = performance.now();
+    setState('CLIMBING');
+    addLog('climb', climber + ' started', route.name + ' route · ' + route.n + ' holds');
+    var n = route.n;
+    var upTo = kind === 'fall' ? Math.floor(n / 2) : kind === 'land' ? Math.ceil(n * 0.6) : n;
+    for (var i = 0; i < upTo; i++) {
+      var hs = handsFor(i);
+      await animatePose(climbPose(hs[0], hs[1]), 620);
+      if (!alive()) return;
+      touch(i);
+      if (!await pause(480, alive)) return;
+    }
+
+    if (kind === 'top') {
+      var t = route.holds[n - 1];
+      await animatePose(climbPose(P(t.x - 6, t.y), P(t.x + 6, t.y)), 600);
+      if (!alive()) return;
+      climbElapsed = performance.now() - climbStart;
+      setState('TOPPED');
+      var sec = Math.round(climbElapsed / 1000);
+      addLog('top', climber + ' topped', fmtS(sec) + ' · ' + touched.length + ' holds');
+      setSasha('top', sec, touched.length, 'Smooth, no hesitation. Next time try skipping hold ' + Math.max(2, n - 3) + ' — you have the reach.');
+      toast('green', climber + ' topped!', route.name + ' route in ' + fmtS(sec) + '.');
+      return;
+    }
+    if (kind === 'land') {
+      var h = route.holds[upTo - 1];
+      await animatePose(climbPose(P(h.x - 6, h.y), P(h.x + 6, h.y)), 500);
+      if (!await pause(500, alive)) return;
+      await animatePose(standPose(Math.max(40, Math.min(320, h.x))), 550);
+      if (!alive()) return;
+      climbElapsed = performance.now() - climbStart;
+      setState('LANDED');
+      var s2 = Math.round(climbElapsed / 1000);
+      addLog('land', climber + ' landed', 'Upright on the mat · high point ' + highPoint());
+      setSasha('land', s2, highPoint(), 'Good controlled drop. Hold ' + (highPoint() + 1) + ' is a long reach — step your feet up first.');
+      return;
+    }
+
+    // Fall → Down → Alert
+    var nx = route.holds[upTo], hs2 = handsFor(upTo - 1);
+    var reach = climbPose(hs2[0], hs2[1]);
+    var reachKey = nx.x < (hs2[0].x + hs2[1].x) / 2 ? 'lw' : 'rw';
+    reach[reachKey] = P(reach[reachKey].x + (nx.x - reach[reachKey].x) * 0.7, reach[reachKey].y + (nx.y - reach[reachKey].y) * 0.7);
+    await animatePose(reach, 500);
+    if (!alive()) return;
+    climbElapsed = performance.now() - climbStart;
+    await animatePose(transformPose(cur, 40, 0, 110), 380);
+    if (!alive()) return;
+    await animatePose(lyingPose(route.cx), 360);
+    if (!alive()) return;
+
+    incident.fall = clock;
+    downSecs = 0;
+    setState('DOWN');
+    addLog('fall', 'Fall detected', climber + ' is lying on the mat · counting to ' + cfg.fallSecs + ' s');
+    setSasha('fall', Math.round(climbElapsed / 1000), highPoint(), 'Came off reaching for ' + (upTo + 1) + '. Bring your hips in and push with the left foot before you reach.');
+    fastForward = true;
+    while (downSecs < cfg.fallSecs) {
+      if (!await pause(170, alive) || state !== 'DOWN') { fastForward = false; return; }
+      downSecs++; clock++; renderClock(); renderHeroRight(); $('#ssub').textContent = subtitle();
+    }
+    fastForward = false;
+    triggerAlert();
+  }
+
+  /* ---------------- Fit device to window ---------------- */
+  var device = $('#device');
+  var mobile = window.matchMedia('(max-width: 520px)');
+  function fit() {
+    if (mobile.matches) { device.style.transform = ''; return; }
+    var s = Math.min(1, (window.innerHeight - 48) / 870, (window.innerWidth - 32) / 416);
+    device.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+
+  /* ---------------- Init ---------------- */
+  buildViewfinder();
+  buildLiveWall();
+  buildPick();
+  cur = standPose(startX());
+  drawPose();
+  applyRoute();
+  renderClock(); renderMetrics(); renderLog(); renderRecent(); renderRouting(); renderFall();
+  fit();
+  detectLive();
+
+  /* ================= LIVE MODE (backend: live.py, same origin) ================= */
+  function nowSec() { var d = new Date(); return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds(); }
+  function parseAt(at) {
+    var m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(String(at || ''));
+    return m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+(m[3] || 0)) : nowSec();
+  }
+  function post(url) {
+    return fetch(url, { method: 'POST', cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
+  }
+  function getState(timeoutMs) {
+    var ctl = window.AbortController ? new AbortController() : null;
+    var to = ctl ? setTimeout(function () { ctl.abort(); }, timeoutMs) : 0;
+    return fetch('api/state', { cache: 'no-store', signal: ctl ? ctl.signal : undefined }).then(function (r) {
+      clearTimeout(to);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (j) { if (!j || !j.state || !NAMES[j.state]) throw new Error('bad state'); return j; });
+  }
+  function detectLive() {
+    if (location.protocol === 'file:') { startMock(); return; }
+    getState(2500).then(enterLive).catch(startMock);
+  }
+  function startMock() { startFrames(); openPick(false); }
+
+  var COLOR_MAP = { yellow: '#FFCC00', green: '#30C35A', blue: '#0A84FF', pink: '#FF2D78', black: '#2C2C2E', red: '#FF3B30', orange: '#FF9500', purple: '#AF52DE', white: '#F2F2F7', grey: '#8E8E93', gray: '#8E8E93' };
+  function liveRouteFor(color, holds) {
+    color = String(color || 'green').toLowerCase();
+    var base = ROUTES.filter(function (r) { return r.id === color; })[0];
+    return { id: color, name: color.charAt(0).toUpperCase() + color.slice(1), color: base ? base.color : (COLOR_MAP[color] || '#30C35A'),
+      ink: (color === 'black' || color === 'purple') ? '#FFF' : '#000', n: holds.length, holdIds: holds.map(function (h) { return h.id; }), grade: '', holds: [] };
+  }
+
+  function enterLive(s) {
+    LIVE = true;
+    runId++; fastForward = false;
+    clearInterval(frameTimer);
+    closePick(); closeMenu(); showTab('live');
+    document.body.classList.add('live');
+    climber = 'Climber';
+    $('#wall').style.display = 'none';
+    $('#liveImg').hidden = false; $('#liveSvg').hidden = false;
+    seenEvents = (s.events || []).length;
+    applyLive(s);
+    setTimeout(pollLoop, 500);
+  }
+
+  var failCount = 0;
+  function pollLoop() { poll(false).then(function () { setTimeout(pollLoop, 500); }); }
+  function poll(once) {
+    return getState(4000).then(function (s) {
+      if (failCount >= 3) toast('green', 'Camera reconnected', 'Live data is back.');
+      failCount = 0;
+      $('#liveBadge').classList.remove('off');
+      applyLive(s);
+    }).catch(function () {
+      failCount++;
+      $('#liveBadge').classList.add('off');
+      $('#camStatus').textContent = 'Reconnecting…';
+      if (failCount === 3) toast('orange', 'Lost the camera phone', 'Trying to reconnect. Check on the wall in person.');
+    });
+  }
+
+  var lastCalls = -1;
+  function applyLive(s) {
+    api = s;
+    wallName = s.wall || 'Wall';
+    clock = nowSec(); renderClock();
+
+    var holds = (s.holds || []).slice().sort(function (a, b) { return a.id - b.id; });
+    var key = (s.hold_color || '') + ':' + holds.map(function (h) { return h.id; }).join(',');
+    if (key !== routeKey) {
+      routeKey = key;
+      route = liveRouteFor(s.hold_color, holds);
+      applyRoute();
+      $('#liveColour').textContent = route.name;
+    }
+    var prevTouched = touched.slice();
+    touched = (s.touched || []).map(function (id) { return route.holdIds.indexOf(id); }).filter(function (i) { return i > -1; });
+    cfg.fallSecs = s.fall_seconds || 30;
+    $('#liveFall').textContent = cfg.fallSecs + ' s';
+    $('#howSecs').textContent = cfg.fallSecs;
+    downSecs = Math.floor(s.down_seconds || 0);
+
+    var cs = s.climb_seconds;
+    if (cs != null) {
+      climbElapsed = cs * 1000;
+      if (s.state === 'CLIMBING') {
+        var target = performance.now() - cs * 1000;
+        if (prevState !== 'CLIMBING' || Math.abs(target - climbStart) > 400) climbStart = target;
+      }
+    } else { climbElapsed = 0; climbStart = performance.now(); }
+
+    latency = +s.latency || 0; calls = +s.calls || 0; liveCost = +s.cost || 0;
+    renderMetrics();
+    if (calls !== lastCalls) { lastCalls = calls; var f = $('#fpulse'); f.classList.add('on'); setTimeout(function () { f.classList.remove('on'); }, 180); }
+
+    $('#camWall').textContent = wallName + ' · Camera';
+    $('#toStaffKicker').textContent = 'Safety alert · ' + wallName;
+    $('#statusLine').textContent = (s.status ? 'Camera: ' + s.status + '. ' : '') + 'Pose by ViTPose via VLM Run. Live Spotter never calls emergency services by itself.';
+
+    if (s.state !== state) setState(s.state);
+    else { renderHeroRight(); $('#ssub').textContent = subtitle(); $('#slabel').textContent = wallName + ' · ' + route.name + ' route'; }
+    var tk = touched.join(',') + '/' + route.n;
+    if (tk !== trackKey) {
+      trackKey = tk;
+      var fresh = touched.filter(function (i) { return prevTouched.indexOf(i) === -1; });
+      renderHoldTrack(fresh.length ? fresh[fresh.length - 1] : null);
+    }
+
+    drawLiveOverlay(s);
+    updateFrame(s);
+
+    var evs = s.events || [];
+    if (seenEvents >= 0 && evs.length > seenEvents && currentTab !== 'log') {
+      evs.slice(seenEvents).forEach(function (e) { var m = EVMAP[e.event]; if (m && TYPE[m[0]].safety) unread++; });
+      renderBadge();
+    }
+    seenEvents = evs.length;
+    rebuildLiveLog();
+
+    if (s.state === 'ALERT') {
+      if (prevState !== 'ALERT') openTakeover();
+      else if ($('#takeover').classList.contains('show') && !$('#toAlert').hidden) fillLiveTakeover();
+    } else if (prevState === 'ALERT' && $('#toStaff').hidden) {
+      closeTakeover();
+    }
+    prevState = s.state;
+  }
+
+  var imgBusy = false, lastSeq = null, lastImgAt = 0;
+  function updateFrame(s) {
+    if (!s.frame || s.frame.seq == null) return;
+    var seq = s.frame.seq, now = performance.now();
+    if (seq === lastSeq || imgBusy || now - lastImgAt < 200) return;
+    imgBusy = true; lastImgAt = now;
+    var url = 'api/frame.jpg?seq=' + encodeURIComponent(seq);
+    var pre = new Image();
+    pre.onload = function () { $('#liveImg').src = url; lastSeq = seq; imgBusy = false; };
+    pre.onerror = function () { imgBusy = false; };
+    pre.src = url;
+  }
+
+  var COCO_BONES = [[5, 6], [5, 7], [7, 9], [6, 8], [8, 10], [5, 11], [6, 12], [11, 12], [11, 13], [13, 15], [12, 14], [14, 16]];
+  function f1(n) { return (+n).toFixed(1); }
+  function drawLiveOverlay(s) {
+    var W = (s.frame && s.frame.w) || 1280, H = (s.frame && s.frame.h) || 720;
+    var svg = $('#liveSvg');
+    if (svg.getAttribute('data-wh') !== W + 'x' + H) {
+      svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+      svg.setAttribute('data-wh', W + 'x' + H);
+      $('#cam').style.aspectRatio = W + ' / ' + H;
+    }
+    var u = Math.max(W, H) / 440, out = '';
+    var tset = s.touched || [];
+    (s.holds || []).forEach(function (h) {
+      var b = h.bbox || [0, 0, 0, 0], x = b[0] * W, y = b[1] * H, w = b[2] * W, hh = b[3] * H, lit = tset.indexOf(h.id) > -1;
+      out += '<g class="lh' + (lit ? ' lit' : '') + '">' +
+        '<rect class="lh-sh" x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + f1(hh) + '" rx="' + f1(3 * u) + '" style="stroke-width:' + f1(4.5 * u) + 'px"/>' +
+        '<rect class="lh-r" x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + f1(hh) + '" rx="' + f1(3 * u) + '" style="stroke-width:' + f1(2.2 * u) + 'px"/>' +
+        '<g class="lh-b" transform="translate(' + f1(x + w) + ' ' + f1(y) + ')"><circle r="' + f1(8 * u) + '" style="stroke-width:' + f1(u) + 'px"/>' +
+        '<text y="' + f1(3.5 * u) + '" text-anchor="middle" style="font-size:' + f1(10 * u) + 'px">' + esc(h.id) + '</text></g></g>';
+    });
+    var person = s.person;
+    if (person && person.kpts && person.kpts.length >= 17) {
+      var k = person.kpts.map(function (p) { return [p[0] * W, p[1] * H]; });
+      var ok = function (i) { return !person.ok || person.ok[i] !== false; };
+      var line = function (a, b, cls, sw) { return '<line class="' + cls + '" x1="' + f1(a[0]) + '" y1="' + f1(a[1]) + '" x2="' + f1(b[0]) + '" y2="' + f1(b[1]) + '" style="stroke-width:' + f1(sw * u) + 'px"/>'; };
+      var bones = COCO_BONES.filter(function (b) { return ok(b[0]) && ok(b[1]); });
+      var neck = ok(0) && ok(5) && ok(6) ? [k[0], [(k[5][0] + k[6][0]) / 2, (k[5][1] + k[6][1]) / 2]] : null;
+      bones.forEach(function (b) { out += line(k[b[0]], k[b[1]], 'bone-sh', 7); });
+      if (neck) out += line(neck[0], neck[1], 'bone-sh', 7);
+      bones.forEach(function (b) { out += line(k[b[0]], k[b[1]], 'bone', 3.5); });
+      if (neck) out += line(neck[0], neck[1], 'bone', 3.5);
+      for (var i = 5; i < 17; i++) if (ok(i)) out += '<circle class="joint" cx="' + f1(k[i][0]) + '" cy="' + f1(k[i][1]) + '" r="' + f1(3.3 * u) + '" style="stroke-width:' + f1(2.2 * u) + 'px"/>';
+      if (ok(0)) out += '<circle class="headc" cx="' + f1(k[0][0]) + '" cy="' + f1(k[0][1]) + '" r="' + f1(9 * u) + '" style="stroke-width:' + f1(3 * u) + 'px"/>';
+    }
+    svg.innerHTML = out;
+  }
+
+  var EVMAP = {
+    start: ['climb', 'Climb started'], topped: ['top', 'Topped'], landed: ['land', 'Landed'], fall: ['fall', 'Fall detected'],
+    got_up: ['ack', 'Got up by themselves'], alert: ['alert', 'Alert'], acknowledged: ['ack', 'Acknowledged']
+  };
+  function eventDetail(e) {
+    var sec = e.seconds, dn = e.down_seconds;
+    switch (e.event) {
+      case 'start': return route.name + ' route · ' + wallName;
+      case 'topped': return sec != null ? 'Time ' + fmtS(sec) : 'Both hands on the top hold';
+      case 'landed': return sec != null ? 'Time ' + fmtS(sec) + ' · upright on the mat' : 'Upright on the mat';
+      case 'fall': return sec != null ? 'After ' + fmtS(sec) + ' on the wall · lying on the mat' : 'Lying on the mat';
+      case 'got_up': return dn != null ? 'After ' + Math.round(dn) + ' s on the mat · no alert needed' : 'No alert needed';
+      case 'alert': return 'Staff: check ' + wallName + (dn != null ? ' · on the mat ' + Math.round(dn) + ' s' : '');
+      case 'acknowledged': return 'Marked OK' + (dn != null ? ' · ' + Math.round(dn) + ' s after the fall' : '');
+    }
+    return '';
+  }
+  function rebuildLiveLog() {
+    var evs = (api && api.events || []).map(function (e, i) {
+      var m = EVMAP[e.event] || ['session', String(e.event || 'Event')];
+      return { t: parseAt(e.at), type: m[0], title: m[1], detail: eventDetail(e), ord: i };
+    });
+    var locals = localLog.map(function (e, i) { return { t: e.t, type: e.type, title: e.title, detail: e.detail, ord: 100000 + i }; });
+    LOG = evs.concat(locals).sort(function (a, b) { return (a.t - b.t) || (a.ord - b.ord); });
+    renderLog(); renderRecent();
+  }
+  function liveResponses() {
+    var evs = api && api.events || [], out = [];
+    evs.forEach(function (e, i) {
+      if (e.event !== 'alert') return;
+      for (var j = i + 1; j < evs.length; j++) if (evs[j].event === 'acknowledged') { out.push(Math.max(0, parseAt(evs[j].at) - parseAt(e.at))); break; }
+    });
+    return out;
+  }
+  function lastEventAt(name) {
+    var evs = api && api.events || [];
+    for (var i = evs.length - 1; i >= 0; i--) if (evs[i].event === name) return evs[i].at;
+    return null;
+  }
+  function fillLiveTakeover() {
+    $('#toKickerT').textContent = 'Reception alert · ' + wallName;
+    $('#toTitle').textContent = 'Staff: check ' + wallName;
+    $('#toBody').textContent = 'A climber has been lying on the mat for ' + downSecs + ' seconds after a fall. Please send someone to check on them.';
+    var fa = lastEventAt('fall'), al = lastEventAt('alert');
+    $('#toMeta').textContent = (fa ? 'Fall ' + fa : 'Fall detected') + (al ? ' · Alert ' + al : '') + ' · You can’t see the wall from here — go in person';
+    $('#toNum').textContent = fmtS(downSecs);
+    $('#toNum').style.fontSize = '46px';
+    $('#toCap').innerHTML = 'on the mat<br>since the fall';
+    $('#toArc').setAttribute('stroke-dashoffset', '0');
+  }
+  function liveAck(staff) {
+    var b1 = $('#btnOk'), b2 = $('#btnStaff');
+    b1.disabled = b2.disabled = true;
+    post('api/ack').then(function () {
+      if (staff) {
+        addLog('staff', 'Staff requested', 'From reception · ' + wallName);
+        $('#staffBody').textContent = 'Staff were asked to go to ' + wallName + ' at ' + hms(nowSec()) + '.';
+        $('#toAlert').hidden = true; $('#toStaff').hidden = false;
+        setTimeout(function () { $('#btnResolve').focus(); }, 50);
+      } else {
+        closeTakeover();
+        toast('green', 'Marked OK', 'Logged at ' + hms(nowSec()) + '.');
+      }
+      poll(true);
+    }).catch(function () {
+      toast('red', 'Couldn’t reach the camera phone', 'The alert is still open. Try again, or go to the wall.');
+    }).then(function () { b1.disabled = b2.disabled = false; });
+  }
+})();
+</script>
+</body>
+</html>

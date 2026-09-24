@@ -487,6 +487,9 @@ def main() -> int:
             shared["frame"], shared["jpeg"] = frame, buf.tobytes() if ok else b""
             shared["seq"] += 1
 
+    def save_events():
+        (out_dir / "events.json").write_text(json.dumps(spotter.events, indent=2))
+
     def on_person(person, frame):
         shared["person"] = person
         before = spotter.state
@@ -494,6 +497,7 @@ def main() -> int:
         spotter.update(person, now)
         if spotter.state != before:
             print(f"[{now:7.1f}s] {before} -> {spotter.state}")
+            save_events()
             if spotter.state == "ALERT":
                 cv2.imwrite(str(out_dir / f"alert_{int(now)}s.jpg"), frame)
                 if not args.serve:
@@ -547,8 +551,8 @@ def main() -> int:
     ctx = {
         "snapshot": lambda: snapshot_of(spotter, shared, info, clock(), args.wall),
         "jpeg": lambda: shared["jpeg"],
-        "ack": lambda: spotter.acknowledge(clock()),
-        "reset": lambda: spotter.reset(),
+        "ack": lambda: (spotter.acknowledge(clock()), save_events()),
+        "reset": lambda: (spotter.reset(), save_events()),
     }
     threading.Thread(target=worker, daemon=True).start()
     threading.Thread(target=frames_live, daemon=True).start()

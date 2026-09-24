@@ -43,6 +43,16 @@ batch mode: `*_climb.mp4` (annotated side-by-side video), `*_route.mp4`,
 `limb_usage.csv`, `metrics.json` (includes the cost). A batch run also writes
 `comparison.json` and `sequences.txt`.
 
+## Live spotter (laptop + camera)
+`python live.py` (`--source 1` for another camera, `--source clip.mp4` to replay
+a clip). It sends 1 frame per second to ViTPose (~0.3s round trip, ~$0.06/min).
+At start it runs one SAM scan for the holds and the floor, which takes ~1 min
+in the background. States: READY → CLIMBING → TOPPED / LANDED / DOWN →
+ALERT after 30s lying on the mat following a fall. ALERT only shows a banner,
+beeps and saves a snapshot; a person presses A. Keys: Q quit, A acknowledge,
+R reset, S re-scan. `python live.py --selftest` checks the logic offline.
+Events and alert snapshots go to `data/output/live/<stamp>/`.
+
 ## Filming rules (the analysis breaks without these)
 - The phone stays completely still (prop it on a water bottle), and it stays in
   the same spot for every attempt.
